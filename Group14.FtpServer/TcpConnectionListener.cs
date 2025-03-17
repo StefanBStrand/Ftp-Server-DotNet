@@ -74,7 +74,7 @@ namespace Group14.FtpServer.Handlers
         /// based if server options has TLS enabled.
         /// </returns>
         /// <exception cref="InvalidOperationException">Thrown if listener is not running.</exception>
-        public IFtpConnection AcceptConnection()
+        public IAsyncFtpConnection AcceptConnection()
         {
             if (!_isRunning)
                 throw new InvalidOperationException("Listener must be running before accepting any connections.");
@@ -100,9 +100,9 @@ namespace Group14.FtpServer.Handlers
             }
         }
 
-        protected IFtpConnection CreateConnection(TcpClient client)
+        protected IAsyncFtpConnection CreateConnection(TcpClient client)
         {
-            return new TcpFtpConnection(client, _options.EnableTls ? _options.Certificate : null);
+            return new AsyncTcpFtpConnection(client, _options.EnableTls ? _options.Certificate : null, implicitTls: false);
         }
     }
 }

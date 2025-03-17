@@ -5,10 +5,11 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the RETR command to retrieve a file.
     /// </summary>
-    internal class RetrCommandHandler : IFtpCommandHandler
+    internal class RetrCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
         private readonly IDataConnectionHandler _dataHandler;
+        public string Command => "RETR";
 
         /// <summary>
         /// Initializes a new instance of the RetrCommandHandler class.
@@ -37,7 +38,7 @@ namespace Group14.FtpServer.CommandHandlers
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
                 return "530 Please login with USER and PASS.";
@@ -46,24 +47,24 @@ namespace Group14.FtpServer.CommandHandlers
             if (parts.Length < 2)
                 return "501 Syntax error in parameters.";
 
-            // get filename and path
             var fileName = parts[1].Trim();
             var filePath = Path.Combine(session.CurrentDirectory, fileName).Replace('\\', '/');
 
             try
             {
-                byte[] retrievedData = _storage.RetrieveFile(filePath); // get data from storage
-                connection.SendResponse("150 Opening data connection for file transfer.");
+                byte[] retrievedData = await _storage.RetrieveFileAsync(filePath);
+                connection.SendResponseAsync("150 Opening data connection for file transfer.");
 
-                TcpClient dataClient = _dataHandler.GetDataClient(session); // use the data connection from pasv
-                using (var stream = dataClient.GetStream())
+                TcpClient dataClient = _dataHandler.GetDataClient(session);
+
+                using (Stream stream = dataClient.GetStream())
                 {
-                    stream.Write(retrievedData, 0, retrievedData.Length);
+                    await stream.WriteAsync(retrievedData, 0, retrievedData.Length);
+                    await stream.FlushAsync();
                 }
 
                 dataClient.Close();
                 _dataHandler.CloseDataChannel(session);
-
                 return "226 Transfer complete.";
             }
             catch (Exception)

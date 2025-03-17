@@ -10,27 +10,27 @@
         /// </summary>
         /// <param name="filePath">The path where the file should be stored, included the file name</param>
         /// <param name="data">The binary content of the file.</param>
-        public void StoreFile(string filePath, byte[] data);
+        Task StoreFileAsync(string filePath, byte[] data);
 
         /// <summary>
         /// Retrieves the content of a file.
         /// </summary>
         /// <param name="filePath">The path to the file to retrieve, included the file name</param>
         /// <returns>The content of a file in binary.</returns>
-        public byte[] RetrieveFile(string filePath);
+        Task<byte[]> RetrieveFileAsync(string filePath);
 
         /// <summary>
         /// Deletes a file.
         /// </summary>
         /// <param name="filePath">The path to the file to delete, included the file name</param>
         /// <returns>True or false based if the file successfully is deleted or not.</returns>
-        public bool DeleteFile(string filePath);
+        Task<bool> DeleteFileAsync(string filePath);
 
         /// <summary>
         /// Lists all files in a specific directory
         /// </summary>
         /// <param name="directoryPath">The path to the directory.</param>
         /// <returns>A list of file items in the directory</returns>
-        public IEnumerable<FileItem> ListAllFiles(string directoryPath);
+        Task<IEnumerable<FileItem>> ListAllFilesAsync(string directoryPath);
     }
 }

@@ -6,9 +6,10 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the PASV command to enter passive mode for data transfer.
     /// </summary>
-    internal class PasvCommandHandler : IFtpCommandHandler, IDataConnectionHandler
+    internal class PasvCommandHandler : IAsyncFtpCommandHandler, IDataConnectionHandler
     {
-        private FtpServerOptions _options;
+        private readonly FtpServerOptions _options;
+        public string Command => "PASV";
 
         /// <summary>
         /// Initializes a new instance of the PasvCommandHandler class.
@@ -31,44 +32,44 @@ namespace Group14.FtpServer.CommandHandlers
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+                return Task.FromResult("530 Please login with USER and PASS.");
 
             try
             {
-                // stop existing listener if it exists...
+                // Stopper evt. eksisterende data listener
                 if (session.DataListener != null)
                 {
                     session.DataListener.Stop();
                     session.DataListener = null;
                 }
 
-                // get ip from config
+                // Hent IP-adressen fra konfigurasjonen – hvis den ikke er satt, bruk 127.0.0.1
                 IPAddress pasvIp = _options.PasvIpAddress;
                 if (pasvIp == null || pasvIp.Equals(IPAddress.Any))
                 {
                     pasvIp = IPAddress.Parse("127.0.0.1");
                 }
 
-
+                // Start en TcpListener på den angitte IP og en tilfeldig port (0)
                 session.DataListener = new TcpListener(pasvIp, 0);
                 session.DataListener.Start();
 
                 int port = ((IPEndPoint)session.DataListener.LocalEndpoint).Port;
 
-                // format ip and the port for the respionse
+                // Formater svarstrengen: bytt ut punktum med komma og del opp porten i high/low
                 string ipString = pasvIp.ToString();
                 string ipFormatted = ipString.Replace('.', ',');
                 int portHigh = port / 256;
                 int portLow = port % 256;
 
-                return $"227 Entering Passive Mode ({ipFormatted},{portHigh},{portLow}).";
+                return Task.FromResult($"227 Entering Passive Mode ({ipFormatted},{portHigh},{portLow}).");
             }
             catch (Exception ex)
             {
-                return $"500 Failed to enter passive mode: {ex.Message}";
+                return Task.FromResult($"500 Failed to enter passive mode: {ex.Message}");
             }
         }
 

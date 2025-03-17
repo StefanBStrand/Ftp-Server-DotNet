@@ -13,6 +13,6 @@ namespace Group14.FtpServer.Factories
         /// <param name="commandName">The name of the FTP command.</param>
         /// <returns>An instance of a command handler that can process the command.</returns>
         /// <exception cref="NotSupportedException">Thrown if the command is not implemented.</exception>
-        IFtpCommandHandler CreateHandler(string commandName);
+        IAsyncFtpCommandHandler CreateHandler(string commandName);
     }
 }

@@ -3,9 +3,10 @@
     /// <summary>
     /// Handles the DELE command to delete a file.
     /// </summary>
-    internal class DeleCommandHandler : IFtpCommandHandler
+    internal class DeleCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
+        public string Command => "DELE";
 
         /// <summary>
         /// Initializes a new DELE command handler.
@@ -27,7 +28,7 @@
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
                 return "530 Please login with USER and PASS.";
@@ -38,11 +39,8 @@
 
             var fileName = parts[1].Trim();
             var filePath = Path.Combine(session.CurrentDirectory, fileName);
-
-            if (_storage.DeleteFile(filePath))
-                return "250 File deleted successfully.";
-
-            return "550 File not found or deletion has failed.";
+            bool deleted = await _storage.DeleteFileAsync(filePath); 
+            return deleted ? "250 File deleted successfully." : "550 File not found or deletion has failed.";
         }
     }
 }

@@ -3,10 +3,11 @@
     /// <summary>
     /// Handles the pass command for user authentication
     /// </summary>
-    internal class PassCommandHandler : IFtpCommandHandler
+    internal class PassCommandHandler : IAsyncFtpCommandHandler
     {
 
         private readonly IAuthenticationProvider _authenticationProvider;
+        public string Command => "PASS";
 
         /// <summary>
         /// Initializes a new instance of the PassCommandHandler class.
@@ -30,28 +31,30 @@
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (session.IsAuthenticated)
-                return "503 Already logged in.";
+                return Task.FromResult("503 Already logged in.");
 
             if (string.IsNullOrEmpty(session.Username))
-                return "503 Login with USER first.";
+                return Task.FromResult("503 Login with USER first.");
 
             var parts = command.Split(' ', 2);
             if (parts.Length < 2)
-                return "501 Syntax error in parameters.";
+                return Task.FromResult("501 Syntax error in parameters.");
 
             string password = parts[1].Trim();
             bool authenticated = _authenticationProvider.Authenticate(session.Username, password);
-
-            if (_authenticationProvider.Authenticate(session.Username, password))
+            if (authenticated)
             {
                 session.IsAuthenticated = true;
-                return "230 User logged in.";
+                return Task.FromResult("230 User logged in.");
             }
-
-            return "530 Authentication failed.";
+            else
+            {
+                return Task.FromResult("530 Authentication failed.");
+            }
         }
     }
 }

@@ -7,10 +7,10 @@ namespace Group14.FtpServer
     /// Standard implementation managing client connections and commands.
     /// Dependencies are injected through the constructor.
     /// </summary>
-    public class FtpServer : IFtpServer
+    public class FtpServer : AsyncIFtpServer
     {
         private readonly IFtpConnectionListener _listener;
-        private readonly IFtpCommandProcessor _commandProcessor;
+        private readonly IAsyncFtpCommandProcessor _commandProcessor;
         private bool _isRunning;
         private readonly ILogger _logger;
         private readonly IFtpSessionFactory _sessionFactory;
@@ -26,7 +26,7 @@ namespace Group14.FtpServer
         /// </exception>
         public FtpServer (
             IFtpConnectionListener listener,
-            IFtpCommandProcessor commandProcessor, 
+            IAsyncFtpCommandProcessor commandProcessor, 
             ILogger logger,
             IFtpSessionFactory sessionFactory )
         {
@@ -57,7 +57,7 @@ namespace Group14.FtpServer
         /// </exception>
         public FtpServer(
             IFtpConnectionListener listener,
-            IFtpCommandProcessor commandProcessor,
+            IAsyncFtpCommandProcessor commandProcessor,
             IFtpSessionFactory sessionFactory)
             : this(listener, commandProcessor, null, sessionFactory)
         { }
@@ -81,48 +81,50 @@ namespace Group14.FtpServer
         /// <summary>
         /// Starts the server.
         /// </summary>
-        public void Start()
+        public async Task<string> Start()
         {
-            if (_isRunning) 
-                return;
-
+            if (_isRunning)
+                return "Server is already running.";
             _isRunning = true;
             _listener.Start();
             _logger?.LogInformation("FTP server has started.");
-            new Thread(AcceptConnections).Start();
+            _ = Task.Run(() => AcceptConnectionsAsync());
+            return "Server started.";
         }
 
         /// <summary>
         /// Stops the server.
         /// </summary>
-        public void Stop()
+        public Task<string> Stop()
         {
-            if (!_isRunning) return;
+            if (!_isRunning)
+                return Task.FromResult("Server is not running.");
             _isRunning = false;
             _listener.Stop();
             _logger?.LogInformation("FTP server has now stopped.");
+            return Task.FromResult("Server stopped.");
         }
 
         /// <summary>
         /// Accepts incoming connections.
         /// </summary>
-        private void AcceptConnections()
+        private async Task AcceptConnectionsAsync()
         {
             while (_isRunning)
             {
                 try
                 {
                     var connection = _listener.AcceptConnection();
-                    new Thread(() => HandleClient(connection)).Start();
+                    _ = Task.Run(() => HandleClientAsync(connection));
                 }
-                catch (Exception e) // TO DO -> betetr exception here
+                catch (Exception e)
                 {
                     _logger?.LogError(e, "Error accepting connection.");
                 }
             }
         }
 
-        private void HandleClient(IFtpConnection connection)
+        private async Task HandleClientAsync(IAsyncFtpConnection connection)
         {
             var session = _sessionFactory.CreateSession();
             if (session == null)
@@ -130,36 +132,41 @@ namespace Group14.FtpServer
 
             using (connection)
             {
-                connection.SendResponse("220 Welcome to Group-4 FTP server.");
+                await connection.SendResponseAsync("220 Welcome to Group-4 FTP server.");
                 while (_isRunning)
                 {
                     try
                     {
-                        var command = connection.ReadCommand();
-
+                        string command = await connection.ReadCommandAsync();
                         if (string.IsNullOrEmpty(command))
-                            break; // client disconnect
+                            break;
 
                         var commandName = command.Split(' ')[0].ToUpper();
-                        if (!session.IsAuthenticated && commandName != "USER" && commandName != "PASS" && commandName != "QUIT")
+
+                        if (!session.IsAuthenticated &&
+                            commandName != "USER" && commandName != "PASS" &&
+                            commandName != "QUIT" && commandName != "AUTH")
                         {
-                            connection.SendResponse("530 Please login with USER and PASS.");
+                            await connection.SendResponseAsync("530 Please login with USER and PASS.");
                             continue;
                         }
 
-                        var response = _commandProcessor.ProcessCommand(command, connection, session);
-                        connection.SendResponse(response);
+                        string response = await _commandProcessor.ProcessCommandAsync(command, connection, session);
+                        if (!string.IsNullOrEmpty(response))
+                        {
+                            await connection.SendResponseAsync(response);
+                        }
                     }
                     catch (InvalidOperationException e)
                     {
-                        _logger?.LogError("Error handling the clients command.");
-                        connection.SendResponse($"500 Internal server error. {e.Message}");
+                        _logger?.LogError("Error handling the client's command: {Message}", e.Message);
+                        await connection.SendResponseAsync($"500 Internal server error. {e.Message}");
                         break;
                     }
                     catch (Exception e)
                     {
-                        _logger?.LogError("Something unexpected happened. Internal server error.");
-                        connection.SendResponse($"500 Internal server error: {e.Message}");
+                        _logger?.LogError("Unexpected error: {Message}", e.Message);
+                        await connection.SendResponseAsync($"500 Internal server error: {e.Message}");
                         break;
                     }
                 }

@@ -9,7 +9,7 @@
         /// Accepts a new clients connection.
         /// </summary>
         /// <returns>The accepted FTP connection.</returns>
-        public IFtpConnection AcceptConnection();
+        public IAsyncFtpConnection AcceptConnection();
 
         /// <summary>
         /// Starts listening for the connections.

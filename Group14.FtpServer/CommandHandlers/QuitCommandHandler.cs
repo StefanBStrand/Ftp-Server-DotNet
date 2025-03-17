@@ -3,8 +3,10 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the quit command to end the session
     /// </summary>
-    internal class QuitCommandHandler : IFtpCommandHandler
+    internal class QuitCommandHandler : IAsyncFtpCommandHandler
     {
+        public string Command => "QUIT";
+
         /// <summary>
         /// Processes an FTP command and returns a response
         /// </summary>
@@ -12,11 +14,11 @@ namespace Group14.FtpServer.CommandHandlers
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
-            connection.SendResponse("221 GOodbye");
-            connection.Close(); // 
-            return "221 Goodbye";
+            connection.SendResponseAsync("221 GOodbye");
+            connection.CloseAsync();
+            return Task.FromResult("221 GOodbye");
         }
     }
 }

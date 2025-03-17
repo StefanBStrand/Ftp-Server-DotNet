@@ -42,16 +42,15 @@
         /// </summary>
         /// <param name="filePath">The path where the file should be stored, included the file name</param>
         /// <param name="data">The binary content of the file.</param>
-        public void StoreFile(string filePath, byte[] data)
+        public async Task StoreFileAsync(string filePath, byte[] data)
         {
-            // build path
             string fullPath = Path.Combine(_rootPath, filePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
             string directory = Path.GetDirectoryName(fullPath);
 
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllBytes(fullPath, data);
+            await File.WriteAllBytesAsync(fullPath, data);
         }
 
         /// <summary>
@@ -59,34 +58,27 @@
         /// </summary>
         /// <param name="filePath">The path to the file to retrieve, included the file name</param>
         /// <returns>The content of a file in binary.</returns>
-        public byte[] RetrieveFile(string filePath)
+        public async Task<byte[]> RetrieveFileAsync(string filePath)
         {
-            string fullPath = Path.Combine(_rootPath, filePath.TrimStart('/'));
-            fullPath = fullPath.Replace('/', Path.DirectorySeparatorChar);
-
-            // read file and return
-            byte[] data = File.ReadAllBytes(fullPath);
-            return data; 
-            
-            // TODO EXCEPTION!
+            string fullPath = Path.Combine(_rootPath, filePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
+            return await File.ReadAllBytesAsync(fullPath);
         }
+
 
         /// <summary>
         /// Deletes a file.
         /// </summary>
         /// <param name="filePath">The path to the file to delete, included the file name</param>
         /// <returns>True or false based if the file successfully is deleted or not.</returns>
-        public bool DeleteFile(string filePath)
+        public Task<bool> DeleteFileAsync(string filePath)
         {
-            string fullPath = Path.Combine(_rootPath, filePath.TrimStart('/'));
-            fullPath = fullPath.Replace('/', Path.DirectorySeparatorChar);
-
+            string fullPath = Path.Combine(_rootPath, filePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
             if (File.Exists(fullPath))
             {
                 File.Delete(fullPath);
-                return true;
+                return Task.FromResult(true);
             }
-            return false;
+            return Task.FromResult(false);
         }
 
         /// <summary>
@@ -94,40 +86,39 @@
         /// </summary>
         /// <param name="ftpPath">The path to the directory.</param>
         /// <returns>a list of file items in the directory</returns>
-        public IEnumerable<FileItem> ListAllFiles(string ftpPath)
+        public async Task<IEnumerable<FileItem>> ListAllFilesAsync(string ftpPath)
         {
             string localPath = Path.Combine(_rootPath, ftpPath.TrimStart('/'));
             var items = new List<FileItem>();
-
             if (!Directory.Exists(localPath))
-            {
                 return items;
-            }
 
-            foreach (var dir in Directory.GetDirectories(localPath))
+            return await Task.Run(() =>
             {
-                var info = new DirectoryInfo(dir);
-                items.Add(new FileItem
+                foreach (var dir in Directory.GetDirectories(localPath))
                 {
-                    Name = Path.GetFileName(dir),
-                    IsDirectory = true,
-                    Size = 0,
-                    LastModified = info.LastWriteTime
-                });
-            }
-
-            foreach (var file in Directory.GetFiles(localPath))
-            {
-                var info = new FileInfo(file);
-                items.Add(new FileItem
+                    var info = new DirectoryInfo(dir);
+                    items.Add(new FileItem
+                    {
+                        Name = Path.GetFileName(dir),
+                        IsDirectory = true,
+                        Size = 0,
+                        LastModified = info.LastWriteTime
+                    });
+                }
+                foreach (var file in Directory.GetFiles(localPath))
                 {
-                    Name = Path.GetFileName(file),
-                    IsDirectory = false,
-                    Size = info.Length,
-                    LastModified = info.LastWriteTime
-                });
-            }
-            return items;
+                    var info = new FileInfo(file);
+                    items.Add(new FileItem
+                    {
+                        Name = Path.GetFileName(file),
+                        IsDirectory = false,
+                        Size = info.Length,
+                        LastModified = info.LastWriteTime
+                    });
+                }
+                return items;
+            });
         }
     }
 }

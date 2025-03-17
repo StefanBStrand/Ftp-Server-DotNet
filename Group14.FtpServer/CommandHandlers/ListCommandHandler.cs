@@ -6,11 +6,12 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the LIST command to show directory contents.
     /// </summary>
-    internal class ListCommandHandler : IFtpCommandHandler
+    internal class ListCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
-        private readonly PasvCommandHandler _pasvHandler;
+        private readonly IDataConnectionHandler _dataHandler;
         private readonly IListFormatter _formatter;
+        public string Command => "LIST";
 
         /// <summary>
         /// Initializes a new instance of the ListCommandHandler.
@@ -24,16 +25,16 @@ namespace Group14.FtpServer.CommandHandlers
         public ListCommandHandler(IBackendStorage storage, PasvCommandHandler pasvHandler, IListFormatter formatter)
         {
             if (storage == null)
-                throw new ArgumentNullException(nameof(storage), "storage can't be null.");
+                throw new ArgumentNullException(nameof(storage), "Storage can't be null.");
 
             if (pasvHandler == null)
-                throw new ArgumentNullException(nameof(pasvHandler), "pasv handler can't be null.");
+                throw new ArgumentNullException(nameof(pasvHandler), "Pasv handler can't be null.");
 
             if (formatter == null)
-                throw new ArgumentNullException(nameof(formatter), "formatter can't be null.");
+                throw new ArgumentNullException(nameof(formatter), "Formatter can't be null.");
 
             _storage = storage;
-            _pasvHandler = pasvHandler;
+            _dataHandler = pasvHandler;
             _formatter = formatter;
         }
 
@@ -44,18 +45,16 @@ namespace Group14.FtpServer.CommandHandlers
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
                 return "530 Please login with USER and PASS.";
 
             try
             {
-                // get files from storage
-                IEnumerable<FileItem> files = _storage.ListAllFiles(session.CurrentDirectory);
+                IEnumerable<FileItem> files = await _storage.ListAllFilesAsync(session.CurrentDirectory);
                 List<string> responseLines = new List<string>();
 
-                // format each file
                 foreach (FileItem file in files)
                 {
                     string formattedLine = _formatter.FormatFileItem(file);
@@ -64,23 +63,29 @@ namespace Group14.FtpServer.CommandHandlers
 
                 string response = string.Join("\r\n", responseLines);
 
-                // send data over pasv
-                connection.SendResponse("150 Here is the directory listing");
+                connection.SendResponseAsync("150 Here is the directory listing");
 
-                TcpClient dataClient = _pasvHandler.GetDataClient(session);
-                Stream stream = dataClient.GetStream();
-                StreamWriter writer = new StreamWriter(stream, Encoding.ASCII);
-
-                writer.Write(response);
-                writer.Flush();
+                TcpClient dataClient = _dataHandler.GetDataClient(session);
+                using (Stream stream = dataClient.GetStream())
+                using (StreamWriter writer = new StreamWriter(stream, Encoding.ASCII))
+                {
+                    await writer.WriteAsync(response);
+                    await writer.FlushAsync();
+                }
                 dataClient.Close();
 
-                _pasvHandler.CloseDataChannel(session);
+                if (_dataHandler is PasvCommandHandler pasvHandler)
+                {
+                    pasvHandler.CloseDataChannel(session);
+                }
                 return "226 Directory sending ok";
             }
             catch (Exception ex)
             {
-                _pasvHandler.CloseDataChannel(session);
+                if (_dataHandler is PasvCommandHandler pasvHandler)
+                {
+                    pasvHandler.CloseDataChannel(session);
+                }
                 return $"550 Failed to list directory: {ex.Message}";
             }
         }

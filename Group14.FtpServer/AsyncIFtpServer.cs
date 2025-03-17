@@ -3,16 +3,16 @@
     /// <summary>
     /// Defines a contract for an FTP server
     /// </summary>
-    public interface IFtpServer
+    public interface AsyncIFtpServer
     {
         /// <summary>
         /// Starts the server.
         /// </summary>
-        public void Start();
+        Task<string> Start();
 
         /// <summary>
         /// Stops the server.
         /// </summary>
-        public void Stop();
+        Task<string> Stop();
     }
 }

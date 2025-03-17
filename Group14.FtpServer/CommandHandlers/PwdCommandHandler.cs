@@ -3,8 +3,10 @@
     /// <summary>
     /// Handles the PWD command to show current directory
     /// </summary>
-    internal class PwdCommandHandler : IFtpCommandHandler
+    internal class PwdCommandHandler : IAsyncFtpCommandHandler
     {
+        public string Command => "PWD";
+
         /// <summary>
         /// Processes an FTP command and returns a response
         /// </summary>
@@ -12,12 +14,11 @@
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
-
-            return $"257 \"{session.CurrentDirectory}\" is the current directory";
+                return Task.FromResult("530 Please login with USER and PASS.");
+            return Task.FromResult($"257 \"{session.CurrentDirectory}\" is the current directory");
         }
     }
 }

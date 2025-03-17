@@ -1,12 +1,15 @@
-﻿namespace Group14.FtpServer.CommandHandlers
+﻿using System.Net.Sockets;
+
+namespace Group14.FtpServer.CommandHandlers
 {
     /// <summary>
     /// Handles the stor command to save a file on the server
     /// </summary>
-    internal class StoreCommandHandler : IFtpCommandHandler
+    internal class StoreCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
         private readonly IDataConnectionHandler _dataHandler;
+        public string Command => "STOR";
 
         /// <summary>
         /// Initializes a new instance of the StoreCommandHandler.
@@ -27,7 +30,7 @@
             _dataHandler = dataHandler;
             _storage = storage;
         }
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
                 return "530 Please login with USER and PASS.";
@@ -39,17 +42,15 @@
             var fileName = parts[1].Trim();
             var filePath = Path.Combine(session.CurrentDirectory, fileName).Replace('\\', '/');
 
-            connection.SendResponse("150 Ready to receive data.");
+            connection.SendResponseAsync("150 Ready to receive data.");
             try
             {
-                var dataClient = _dataHandler.GetDataClient(session);
-                var data = ReadFileData(dataClient.GetStream()); // read data with the stream
-
-                // close connection
+                TcpClient dataClient = _dataHandler.GetDataClient(session);
+                byte[] data = await ReadFileDataAsync(dataClient.GetStream());
                 dataClient.Close();
                 _dataHandler.CloseDataChannel(session);
 
-                _storage.StoreFile(filePath, data); 
+                await _storage.StoreFileAsync(filePath, data);
                 return "226 File stored successfully";
             }
             catch (Exception ex)
@@ -59,22 +60,22 @@
             }
         }
 
-        private byte[] ReadFileData(Stream stream)
+
+        private async Task<byte[]> ReadFileDataAsync(Stream stream)
         {
-            var buffer = new byte[8192]; // we need a buffer of some sort, starting with 8kbs
+            var buffer = new byte[8192]; 
             var allData = new List<byte>();
 
             int bytesRead;
-            // read from stream as long as there is something to read from
-            while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
-                for (int i = 0; i < bytesRead; i++) // add read bytes to the list
+                for (int i = 0; i < bytesRead; i++)
                 {
                     allData.Add(buffer[i]);
                 }
             }
 
-            return allData.ToArray(); // return data in bytes
+            return allData.ToArray();
         }
     }
 }

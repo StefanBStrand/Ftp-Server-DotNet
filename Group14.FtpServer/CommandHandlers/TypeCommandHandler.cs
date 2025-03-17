@@ -3,8 +3,9 @@
     /// <summary>
     /// Handles the type command to set transfer mode
     /// </summary>
-    internal class TypeCommandHandler : IFtpCommandHandler
+    internal class TypeCommandHandler : IAsyncFtpCommandHandler
     {
+        public string Command => "TYPE";
         /// <summary>
         /// Processes an FTP command and returns a response
         /// </summary>
@@ -12,20 +13,20 @@
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+                return Task.FromResult("530 Please login with USER and PASS.");
 
             var parts = command.Split(' ', 2);
             if (parts.Length < 2)
-                return "501 Syntax error in parameters.";
+                return Task.FromResult("501 Syntax error in parameters.");
 
             var type = parts[1].Trim().ToUpper();
-            if (type == "A" || type == "I") // ASCII or Binary
-                return $"200 Type set to {type}.";
+            if (type == "A" || type == "I") 
+                return Task.FromResult($"200 Type set to {type}.");
 
-            return "504 Command not implemented for that parameter.";
+            return Task.FromResult("504 Command not implemented for that parameter.");
         }
     }
 }

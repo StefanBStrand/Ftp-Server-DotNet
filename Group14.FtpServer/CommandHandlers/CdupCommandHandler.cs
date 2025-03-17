@@ -3,8 +3,10 @@
     /// <summary>
     /// Handles the CDUP command to move up one directory level.
     /// </summary>
-    internal class CdupCommandHandler : IFtpCommandHandler
+    internal class CdupCommandHandler : IAsyncFtpCommandHandler
     {
+        public string Command => "CDUP";
+
         /// <summary>
         /// Processes the CDUP command and changes directory up one level.
         /// </summary>
@@ -12,25 +14,17 @@
         /// <param name="connection">The connection to the client.</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message.</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+                return Task.FromResult("530 Please login with USER and PASS.");
 
-            if (session.CurrentDirectory == "/") // root check so we dont go below
-                return "550 Already at root directory.";
+            if (session.CurrentDirectory == "/")
+                return Task.FromResult("550 Already at root directory.");
 
             var currentDir = Path.GetDirectoryName(session.CurrentDirectory);
-            if (currentDir == null)
-            {
-                session.CurrentDirectory = "/";
-            }
-            else
-            {
-                session.CurrentDirectory = currentDir.Replace('\\', '/');
-            }
-
-            return "250 Directory changed successfully.";
+            session.CurrentDirectory = currentDir == null ? "/" : currentDir.Replace('\\', '/');
+            return Task.FromResult("250 Directory changed successfully.");
         }
     }
 }

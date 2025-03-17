@@ -3,8 +3,9 @@
     /// <summary>
     /// Handles the port command for active mode.
     /// </summary>
-    internal class PortCommandHandler : IFtpCommandHandler
+    internal class PortCommandHandler : IAsyncFtpCommandHandler
     {
+        public string Command => "PORT";
         /// <summary>
         /// Processes an FTP command and returns a response
         /// </summary>
@@ -12,12 +13,12 @@
         /// <param name="connection">The connection to the client</param>
         /// <param name="session">The current session state</param>
         /// <returns>FTP response code and message</returns>
-        public string HandleCommand(string command, IFtpConnection connection, IFtpSession session)
+        public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+                return Task.FromResult("530 Please login with USER and PASS.");
 
-            return "502 Active mode not implemented yet."; 
+            return Task.FromResult("502 Active mode not implemented yet.");
         }
     }
 }
