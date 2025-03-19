@@ -6,7 +6,7 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the PASV command to enter passive mode for data transfer.
     /// </summary>
-    internal class PasvCommandHandler : IAsyncFtpCommandHandler, IDataConnectionHandler
+    public class PasvCommandHandler : IAsyncFtpCommandHandler, IDataConnectionHandler
     {
         private readonly FtpServerOptions _options;
         public string Command => "PASV";
@@ -39,27 +39,23 @@ namespace Group14.FtpServer.CommandHandlers
 
             try
             {
-                // Stopper evt. eksisterende data listener
                 if (session.DataListener != null)
                 {
                     session.DataListener.Stop();
                     session.DataListener = null;
                 }
 
-                // Hent IP-adressen fra konfigurasjonen – hvis den ikke er satt, bruk 127.0.0.1
                 IPAddress pasvIp = _options.PasvIpAddress;
                 if (pasvIp == null || pasvIp.Equals(IPAddress.Any))
                 {
                     pasvIp = IPAddress.Parse("127.0.0.1");
                 }
 
-                // Start en TcpListener på den angitte IP og en tilfeldig port (0)
                 session.DataListener = new TcpListener(pasvIp, 0);
                 session.DataListener.Start();
 
                 int port = ((IPEndPoint)session.DataListener.LocalEndpoint).Port;
 
-                // Formater svarstrengen: bytt ut punktum med komma og del opp porten i high/low
                 string ipString = pasvIp.ToString();
                 string ipFormatted = ipString.Replace('.', ',');
                 int portHigh = port / 256;

@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the CWD command to change the current directory.
     /// </summary>
-    internal class CwdCommandHandler : IAsyncFtpCommandHandler
+    public class CwdCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "CWD";
         /// <summary>
@@ -19,6 +19,7 @@
                 return Task.FromResult("530 Please login with USER and PASS.");
 
             var commandParts = command.Split(' ', 2);
+
             if (commandParts.Length < 2)
                 return Task.FromResult("501 Syntax error in parameters.");
 

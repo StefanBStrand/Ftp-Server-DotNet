@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the pass command for user authentication
     /// </summary>
-    internal class PassCommandHandler : IAsyncFtpCommandHandler
+    public class PassCommandHandler : IAsyncFtpCommandHandler
     {
 
         private readonly IAuthenticationProvider _authenticationProvider;

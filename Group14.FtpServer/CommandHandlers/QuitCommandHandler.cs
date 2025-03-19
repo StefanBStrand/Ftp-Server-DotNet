@@ -3,7 +3,7 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the quit command to end the session
     /// </summary>
-    internal class QuitCommandHandler : IAsyncFtpCommandHandler
+    public class QuitCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "QUIT";
 

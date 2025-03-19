@@ -1,6 +1,6 @@
 ﻿namespace Group14.FtpServer.CommandHandlers
 {
-    internal class ProtCommandHandler : IAsyncFtpCommandHandler
+    public class ProtCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "PROT";
 

@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the PWD command to show current directory
     /// </summary>
-    internal class PwdCommandHandler : IAsyncFtpCommandHandler
+    public class PwdCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "PWD";
 

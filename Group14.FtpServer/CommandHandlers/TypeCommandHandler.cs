@@ -3,9 +3,10 @@
     /// <summary>
     /// Handles the type command to set transfer mode
     /// </summary>
-    internal class TypeCommandHandler : IAsyncFtpCommandHandler
+    public class TypeCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "TYPE";
+
         /// <summary>
         /// Processes an FTP command and returns a response
         /// </summary>
@@ -23,7 +24,7 @@
                 return Task.FromResult("501 Syntax error in parameters.");
 
             var type = parts[1].Trim().ToUpper();
-            if (type == "A" || type == "I") 
+            if (type == "A" || type == "I")
                 return Task.FromResult($"200 Type set to {type}.");
 
             return Task.FromResult("504 Command not implemented for that parameter.");

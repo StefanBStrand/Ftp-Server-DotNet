@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the port command for active mode.
     /// </summary>
-    internal class PortCommandHandler : IAsyncFtpCommandHandler
+    public class PortCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "PORT";
         /// <summary>

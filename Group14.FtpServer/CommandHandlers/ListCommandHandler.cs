@@ -6,7 +6,7 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the LIST command to show directory contents.
     /// </summary>
-    internal class ListCommandHandler : IAsyncFtpCommandHandler
+    public class ListCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
         private readonly IDataConnectionHandler _dataHandler;

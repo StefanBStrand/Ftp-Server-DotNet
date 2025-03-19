@@ -1,6 +1,6 @@
 ﻿namespace Group14.FtpServer.CommandHandlers
 {
-    internal class PbszCommandHandler : IAsyncFtpCommandHandler
+    public class PbszCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "PBSZ";
 

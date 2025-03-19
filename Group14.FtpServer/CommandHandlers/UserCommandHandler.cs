@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the user command to set username
     /// </summary>
-    internal class UserCommandHandler : IAsyncFtpCommandHandler
+    public class UserCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "USER";
 

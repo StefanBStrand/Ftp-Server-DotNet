@@ -23,7 +23,7 @@ namespace Group14.FtpServer.Tests
             var options = new FtpServerOptions()
             {
                 EnableTls = false,
-                Port = 2121,
+                Port = 2122,
                 RootPath = "./TestFtpRoot"
             };
 
@@ -46,7 +46,7 @@ namespace Group14.FtpServer.Tests
     {
         using (TcpClient client = new TcpClient())
         {
-            await client.ConnectAsync("127.0.0.1", 2121);
+            await client.ConnectAsync("127.0.0.1", 2122);
 
             using (NetworkStream stream = client.GetStream())
             using (StreamReader reader = new StreamReader(stream, Encoding.ASCII))

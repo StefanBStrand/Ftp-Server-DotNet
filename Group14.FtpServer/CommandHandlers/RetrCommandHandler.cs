@@ -5,7 +5,7 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the RETR command to retrieve a file.
     /// </summary>
-    internal class RetrCommandHandler : IAsyncFtpCommandHandler
+    public class RetrCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
         private readonly IDataConnectionHandler _dataHandler;

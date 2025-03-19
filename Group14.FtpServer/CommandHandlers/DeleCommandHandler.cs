@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the DELE command to delete a file.
     /// </summary>
-    internal class DeleCommandHandler : IAsyncFtpCommandHandler
+    public class DeleCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
         public string Command => "DELE";

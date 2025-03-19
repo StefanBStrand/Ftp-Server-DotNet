@@ -24,11 +24,11 @@ namespace Group14.FtpServer
         /// <exception cref="ArgumentNullException">
         /// Thrown if either listener, command processor or or session factory is null.
         /// </exception>
-        public FtpServer (
+        public FtpServer(
             IFtpConnectionListener listener,
-            IAsyncFtpCommandProcessor commandProcessor, 
+            IAsyncFtpCommandProcessor commandProcessor,
             ILogger logger,
-            IFtpSessionFactory sessionFactory )
+            IFtpSessionFactory sessionFactory)
         {
             if (listener == null)
                 throw new ArgumentNullException(nameof(listener), "The connection listener can't be null.");
@@ -152,6 +152,7 @@ namespace Group14.FtpServer
                         }
 
                         string response = await _commandProcessor.ProcessCommandAsync(command, connection, session);
+
                         if (!string.IsNullOrEmpty(response))
                         {
                             await connection.SendResponseAsync(response);

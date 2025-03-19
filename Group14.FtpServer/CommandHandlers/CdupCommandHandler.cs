@@ -3,7 +3,7 @@
     /// <summary>
     /// Handles the CDUP command to move up one directory level.
     /// </summary>
-    internal class CdupCommandHandler : IAsyncFtpCommandHandler
+    public class CdupCommandHandler : IAsyncFtpCommandHandler
     {
         public string Command => "CDUP";
 

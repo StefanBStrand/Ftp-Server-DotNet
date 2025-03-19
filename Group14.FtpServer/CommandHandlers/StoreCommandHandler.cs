@@ -5,7 +5,7 @@ namespace Group14.FtpServer.CommandHandlers
     /// <summary>
     /// Handles the stor command to save a file on the server
     /// </summary>
-    internal class StoreCommandHandler : IAsyncFtpCommandHandler
+    public class StoreCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
         private readonly IDataConnectionHandler _dataHandler;
@@ -30,6 +30,7 @@ namespace Group14.FtpServer.CommandHandlers
             _dataHandler = dataHandler;
             _storage = storage;
         }
+
         public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
@@ -63,7 +64,7 @@ namespace Group14.FtpServer.CommandHandlers
 
         private async Task<byte[]> ReadFileDataAsync(Stream stream)
         {
-            var buffer = new byte[8192]; 
+            var buffer = new byte[8192];
             var allData = new List<byte>();
 
             int bytesRead;
