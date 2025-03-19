@@ -1,23 +1,23 @@
 ﻿namespace Group14.FtpServer
 {
     /// <summary>
-    /// Default implementation of an FTP session factory.
+    /// Creates instances of FTP sessions using a specified or default backend storage.
     /// </summary>
     public class DefaultFtpSessionFactory : IFtpSessionFactory
     {
-        private readonly IBackendStorage _backendStorage;
+        private readonly IBackendStorage _storageBackend;
 
         /// <summary>
-        /// Initializes a new default FTP session factory with a specified backend storage type.
+        /// Initializes a new instance of the DefaultFtpSessionFactory class with a specified backend storage.
         /// </summary>
-        /// <param name="backendStorage">The storage backend to use.</param>
-        /// <exception cref="ArgumentNullException">Thrown if provided backend storage is null.</exception>
-        public DefaultFtpSessionFactory(IBackendStorage backendStorage)
+        /// <param name="storageBackend">The backend storage to use for FTP sessions.</param>
+        /// <exception cref="ArgumentNullException">Thrown storageBackend null.</exception>
+        public DefaultFtpSessionFactory(IBackendStorage storageBackend)
         {
-            if (backendStorage == null)
-                throw new ArgumentNullException(nameof(backendStorage), "The backend storage type can't be null.");
+            if (storageBackend == null)
+                throw new ArgumentNullException(nameof(storageBackend), "The backend storage can't be null.");
 
-            _backendStorage = backendStorage;
+            _storageBackend = storageBackend;
         }
 
         /// <summary>
@@ -32,7 +32,7 @@
         /// <returns>Returns a new instance of a default FTP session.</returns>
         public IFtpSession CreateSession()
         {
-            return new DefaultFtpSession(_backendStorage);
+            return new FtpSession(_storageBackend);
         }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Group14.FtpServer
 {
-    public class DefaultFtpSession : IFtpSession
+    public class FtpSession : IFtpSession
     {
         /// <summary>
         /// Gets or sets whether the client is authenticated.
@@ -39,7 +39,7 @@ namespace Group14.FtpServer
         /// </summary>
         /// <param name="storage">The storage backend to use.</param>
         /// <exception cref="ArgumentNullException">Thrown if storage is null.</exception>
-        public DefaultFtpSession(IBackendStorage storage)
+        public FtpSession(IBackendStorage storage)
         {
             if (storage == null)
                 throw new ArgumentNullException(nameof(storage), "The storage type can't be null.");

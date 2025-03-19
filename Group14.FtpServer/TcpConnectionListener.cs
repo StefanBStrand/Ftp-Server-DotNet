@@ -3,17 +3,16 @@ using System.Net.Sockets;
 
 namespace Group14.FtpServer.Handlers
 {
-
     /// <summary>
     /// Represents an FTP connection listener using TCP with the 
     /// optional support of TLS.
     /// </summary>
-    public class TcpConnectionListener : IFtpConnectionListener // should this also be selead?
+    public class TcpConnectionListener : IFtpConnectionListener
     {
         private readonly TcpListener _listener;
         private readonly FtpServerOptions _options;
         private bool _isRunning;
-        private readonly ILogger _logger;
+        private readonly ILogger<IFtpConnectionListener> _logger;
 
         /// <summary>
         /// Initializes a new TCP listener with specific server options and a specific logger instance.
@@ -21,7 +20,7 @@ namespace Group14.FtpServer.Handlers
         /// <param name="options">The options to base the listener on.</param>
         /// <param name="logger">A specific logger used to log information and errors.</param>
         /// <exception cref="ArgumentNullException">Throw if server options is null.</exception>
-        public TcpConnectionListener(FtpServerOptions options, ILogger logger)
+        public TcpConnectionListener(FtpServerOptions options, ILogger<IFtpConnectionListener> logger)
         {
             if (options == null)
                 throw new ArgumentNullException(nameof(options), "Server options can't be null.");
@@ -67,13 +66,10 @@ namespace Group14.FtpServer.Handlers
         }
 
         /// <summary>
-        /// Accepts a new TCP connection.
+        /// Accepts an incoming FTP connection.
         /// </summary>
-        /// <returns>
-        /// Returns a new TcpFtpConnection with or without a certificate
-        /// based if server options has TLS enabled.
-        /// </returns>
-        /// <exception cref="InvalidOperationException">Thrown if listener is not running.</exception>
+        /// <returns>A new instance of IAsyncFtpConnection representing the accepted connection.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the listener is not running or if TLS is enabled without a certificate.</exception>
         public IAsyncFtpConnection AcceptConnection()
         {
             if (!_isRunning)
@@ -85,6 +81,7 @@ namespace Group14.FtpServer.Handlers
 
                 if (_options.EnableTls && _options.Certificate == null)
                     throw new InvalidOperationException("TLS is enabled but no certificate is provided.");
+
                 return CreateConnection(client);
 
             }
@@ -102,7 +99,7 @@ namespace Group14.FtpServer.Handlers
 
         protected IAsyncFtpConnection CreateConnection(TcpClient client)
         {
-            return new AsyncTcpFtpConnection(client, _options.EnableTls ? _options.Certificate : null, implicitTls: false);
+            return new TcpFtpConnection(client, _options.EnableTls ? _options.Certificate : null, implicitTls: false);
         }
     }
 }

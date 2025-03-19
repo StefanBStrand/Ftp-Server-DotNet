@@ -7,15 +7,22 @@
     {
 
         private readonly IAuthenticationProvider _authenticationProvider;
+        private const string AlreadyAuthenticatedResponse = "503 Already logged in.";
+        private const string NoUsernameResponse = "503 Login with USER first.";
+        private const string SyntaxErrorResponse = "501 Syntax error in parameters.";
+        private const string AuthenticationSuccessResponse = "230 User logged in.";
+        private const string AuthenticationFailureResponse = "530 Authentication failed.";
+
+        /// <summary>
+        /// Gets the command string this handler processes.
+        /// </summary>
         public string Command => "PASS";
 
         /// <summary>
         /// Initializes a new instance of the PassCommandHandler class.
         /// </summary>
         /// <param name="authenticationProvider">The authentication provider responsible for verifying the user.</param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown if "authenticationProvider is null.
-        /// </exception>
+        /// <exception cref="ArgumentNullException">Thrown if authenticationProvider is null.</exception>
         public PassCommandHandler(IAuthenticationProvider authenticationProvider)
         {
             if (authenticationProvider == null)
@@ -25,36 +32,40 @@
         }
 
         /// <summary>
-        /// Processes an FTP command and returns a response
+        /// Processes the PASS command to authenticate the user with the provided password.
         /// </summary>
-        /// <param name="command">The full command string from the client</param>
-        /// <param name="connection">The connection to the client</param>
-        /// <param name="session">The current session state</param>
-        /// <returns>FTP response code and message</returns>
+        /// <param name="command">The full command string received from the client.</param>
+        /// <param name="connection">The active connection to the client.</param>
+        /// <param name="session">The current FTP session state.</param>
+        /// <returns>A response string indicating the result of the authentication attempt.</returns>
 
         public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (session.IsAuthenticated)
-                return Task.FromResult("503 Already logged in.");
+            {
+                return Task.FromResult(AlreadyAuthenticatedResponse);
+            }
 
             if (string.IsNullOrEmpty(session.Username))
-                return Task.FromResult("503 Login with USER first.");
+            {
+                return Task.FromResult(NoUsernameResponse);
+            }
 
-            var parts = command.Split(' ', 2);
-            if (parts.Length < 2)
-                return Task.FromResult("501 Syntax error in parameters.");
+            var commandArguments = command.Split(' ', 2);
+            if (commandArguments.Length < 2)
+            {
+                return Task.FromResult(SyntaxErrorResponse);
+            }
 
-            string password = parts[1].Trim();
-            bool authenticated = _authenticationProvider.Authenticate(session.Username, password);
-            if (authenticated)
+            var password = commandArguments[1].Trim();
+            var isAuthenticated = _authenticationProvider.Authenticate(session.Username, password);
+            if (isAuthenticated)
             {
                 session.IsAuthenticated = true;
-                return Task.FromResult("230 User logged in.");
+                return Task.FromResult(AuthenticationSuccessResponse);
             }
-            else
-            {
-                return Task.FromResult("530 Authentication failed.");
-            }
+
+            return Task.FromResult(AuthenticationFailureResponse);
         }
     }
 }

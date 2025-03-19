@@ -1,24 +1,33 @@
 ﻿namespace Group14.FtpServer.CommandHandlers
 {
     /// <summary>
-    /// Handles the port command for active mode.
+    /// Handles the PORT command to set up an active mode data connection (not yet implemented).
     /// </summary>
     public class PortCommandHandler : IAsyncFtpCommandHandler
     {
-        public string Command => "PORT";
+        private const string NotAuthenticatedResponse = "530 Please login with USER and PASS.";
+        private const string NotImplementedResponse = "502 Active mode not implemented yet.";
+
         /// <summary>
-        /// Processes an FTP command and returns a response
+        /// Gets the command string this handler processes.
         /// </summary>
-        /// <param name="command">The full command string from the client</param>
-        /// <param name="connection">The connection to the client</param>
-        /// <param name="session">The current session state</param>
-        /// <returns>FTP response code and message</returns>
+        public string Command => "PORT";
+
+        /// <summary>
+        /// Processes the PORT command to set up an active mode data connection.
+        /// </summary>
+        /// <param name="command">The full command string received from the client.</param>
+        /// <param name="connection">The active connection to the client.</param>
+        /// <param name="session">The current FTP session state.</param>
+        /// <returns>A response string indicating the result of the operation.</returns>
         public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return Task.FromResult("530 Please login with USER and PASS.");
+            {
+                return Task.FromResult(NotAuthenticatedResponse);
+            }
 
-            return Task.FromResult("502 Active mode not implemented yet.");
+            return Task.FromResult(NotImplementedResponse);
         }
     }
 }

@@ -1,82 +1,84 @@
-﻿using System.Net.Sockets;
-
-namespace Group14.FtpServer.CommandHandlers
+﻿namespace Group14.FtpServer.CommandHandlers
 {
     /// <summary>
-    /// Handles the stor command to save a file on the server
+    /// Handles the STOR command to store a file on the server.
     /// </summary>
     public class StoreCommandHandler : IAsyncFtpCommandHandler
     {
-        private readonly IBackendStorage _storage;
-        private readonly IDataConnectionHandler _dataHandler;
+        private readonly IBackendStorage _storageBackend;
+        private readonly IDataConnectionHandler _dataConnectionHandler;
+        private const string NotAuthenticatedResponse = "530 Please login with USER and PASS.";
+        private const string SyntaxErrorResponse = "501 Syntax error in parameters.";
+        private const string ReadyToReceiveResponse = "150 Ready to receive data.";
+        private const string SuccessResponse = "226 File stored successfully.";
+        private const string FailureResponsePrefix = "550 Failed to store file: ";
+
+        /// <summary>
+        /// Gets the command string this handler processes.
+        /// </summary>
         public string Command => "STOR";
 
         /// <summary>
-        /// Initializes a new instance of the StoreCommandHandler.
+        /// Initializes a new instance of the StoreCommandHandler class.
         /// </summary>
-        /// <param name="storage">The backend storage responsible for storing files.</param>
-        /// <param name="dataHandler">The data connection handler used to receive file data.</param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown if the storage or data handler is null.
-        /// </exception>
-        public StoreCommandHandler(IBackendStorage storage, IDataConnectionHandler dataHandler)
+        /// <param name="storageBackend">The storage backend used to store the file.</param>
+        /// <param name="dataConnectionHandler">The handler managing data connections for file transfers.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any parameter is null.</exception>
+        public StoreCommandHandler(IBackendStorage storageBackend, IDataConnectionHandler dataConnectionHandler)
         {
-            if (storage == null)
-                throw new ArgumentNullException(nameof(storage), "Storage type can't be null.");
+            if (storageBackend == null)
+                throw new ArgumentNullException(nameof(storageBackend), "Storage type can't be null.");
 
-            if (dataHandler == null)
-                throw new ArgumentNullException(nameof(dataHandler), "Data connection handler can't be null.");
+            if (dataConnectionHandler == null)
+                throw new ArgumentNullException(nameof(dataConnectionHandler), "Data connection handler can't be null.");
 
-            _dataHandler = dataHandler;
-            _storage = storage;
+            _dataConnectionHandler = dataConnectionHandler;
+            _storageBackend = storageBackend;
         }
 
+        /// <summary>
+        /// Processes the STOR command to receive a file over the data connection and store it.
+        /// </summary>
+        /// <param name="command">The full command string received from the client (e.g., "STOR file.txt").</param>
+        /// <param name="connection">The active connection to the client.</param>
+        /// <param name="session">The current FTP session state.</param>
+        /// <returns>A response string indicating the result of the operation.</returns>
         public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+            {
+                return NotAuthenticatedResponse;
+            }
 
-            var parts = command.Split(' ', 2);
-            if (parts.Length < 2)
-                return "501 Syntax error in parameters.";
+            var commandArguments = command.Split(' ', 2);
+            if (commandArguments.Length < 2)
+            {
+                return SyntaxErrorResponse;
+            }
 
-            var fileName = parts[1].Trim();
-            var filePath = Path.Combine(session.CurrentDirectory, fileName).Replace('\\', '/');
+            var targetFileName = commandArguments[1].Trim();
+            var filePath = Path.Combine(session.CurrentDirectory, targetFileName).Replace('\\', '/');
 
-            connection.SendResponseAsync("150 Ready to receive data.");
+            await connection.SendResponseAsync(ReadyToReceiveResponse);
             try
             {
-                TcpClient dataClient = _dataHandler.GetDataClient(session);
-                byte[] data = await ReadFileDataAsync(dataClient.GetStream());
-                dataClient.Close();
-                _dataHandler.CloseDataChannel(session);
+                using var dataClient = _dataConnectionHandler.GetDataClient(session);
+                using var stream = dataClient.GetStream();
 
-                await _storage.StoreFileAsync(filePath, data);
-                return "226 File stored successfully";
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+
+                byte[] fileData = memoryStream.ToArray();
+
+                await _storageBackend.StoreFileAsync(filePath, fileData);
+                _dataConnectionHandler.CloseDataChannel(session);
+                return SuccessResponse;
             }
             catch (Exception ex)
             {
-                _dataHandler.CloseDataChannel(session);
-                return $"550 Failed to store file: {ex.Message}";
+                _dataConnectionHandler.CloseDataChannel(session);
+                return $"{FailureResponsePrefix}{ex.Message}";
             }
-        }
-
-
-        private async Task<byte[]> ReadFileDataAsync(Stream stream)
-        {
-            var buffer = new byte[8192];
-            var allData = new List<byte>();
-
-            int bytesRead;
-            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-            {
-                for (int i = 0; i < bytesRead; i++)
-                {
-                    allData.Add(buffer[i]);
-                }
-            }
-
-            return allData.ToArray();
         }
     }
 }

@@ -1,33 +1,44 @@
 ﻿namespace Group14.FtpServer.CommandHandlers
 {
     /// <summary>
-    /// Handles the CWD command to change the current directory.
+    /// Handles the CWD command to change the current working directory.
     /// </summary>
     public class CwdCommandHandler : IAsyncFtpCommandHandler
     {
-        public string Command => "CWD";
+        private const string NotAuthenticatedResponse = "530 Please login with USER and PASS.";
+        private const string SyntaxErrorResponse = "501 Syntax error in parameters.";
+        private const string SuccessResponse = "250 Directory changed successfully.";
+
         /// <summary>
-        /// Processes the cwd command and changes to the specified directory
+        /// Gets the command string this handler processes.
         /// </summary>
-        /// <param name="command">The full command string from the client</param>
-        /// <param name="connection">The connection to the client</param>
-        /// <param name="session">The current session state</param>
-        /// <returns>FTP response code and message</returns>
+        public string Command => "CWD";
+
+        /// <summary>
+        /// Processes the CWD command to change the current directory to the specified path.
+        /// </summary>
+        /// <param name="command">The full command string received from the client.</param>
+        /// <param name="connection">The active connection to the client.</param>
+        /// <param name="session">The current FTP session state.</param>
+        /// <returns>A response string indicating the result of the operation.</returns>
         public Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return Task.FromResult("530 Please login with USER and PASS.");
+            {
+                return Task.FromResult(NotAuthenticatedResponse);
+            }
 
-            var commandParts = command.Split(' ', 2);
+            var commandArguments = command.Split(' ', 2);
+            if (commandArguments.Length < 2)
+            {
+                return Task.FromResult(SyntaxErrorResponse);
+            }
 
-            if (commandParts.Length < 2)
-                return Task.FromResult("501 Syntax error in parameters.");
+            var targetDirectory = commandArguments[1].Trim();
+            var newPath = Path.Combine(session.CurrentDirectory, targetDirectory).Replace('\\', '/');
+            session.CurrentDirectory = newPath;
 
-            var newDir = commandParts[1].Trim();
-            string newPath = Path.Combine(session.CurrentDirectory, newDir);
-            session.CurrentDirectory = newPath.Replace('\\', '/');
-
-            return Task.FromResult("250 Directory changed successfully.");
+            return Task.FromResult(SuccessResponse);
         }
     }
 }

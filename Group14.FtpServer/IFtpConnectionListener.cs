@@ -6,12 +6,6 @@
     public interface IFtpConnectionListener
     {
         /// <summary>
-        /// Accepts a new clients connection.
-        /// </summary>
-        /// <returns>The accepted FTP connection.</returns>
-        public IAsyncFtpConnection AcceptConnection();
-
-        /// <summary>
         /// Starts listening for the connections.
         /// </summary>
         public void Start();
@@ -20,5 +14,13 @@
         /// Stops listening for connections.
         /// </summary>
         public void Stop();
+
+        /// <summary>
+        /// Accepts an incoming FTP connection.
+        /// </summary>
+        /// <returns>A new instance of IAsyncFtpConnection representing the accepted connection.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the listener is not running.</exception>
+        public IAsyncFtpConnection AcceptConnection();
+
     }
 }

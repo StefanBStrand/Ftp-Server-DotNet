@@ -9,7 +9,7 @@ namespace Group14.FtpServer
     /// <summary>
     /// Implements a FTP connection over TCP with optional support of TLS.
     /// </summary>
-    public class AsyncTcpFtpConnection : IAsyncFtpConnection
+    public class TcpFtpConnection : IAsyncFtpConnection
     {
         private readonly TcpClient _tcpClient;
         private Stream _stream;
@@ -24,12 +24,10 @@ namespace Group14.FtpServer
         /// Initializes a new instance of the TcpFtpConnection class.
         /// </summary>
         /// <param name="tcpClient">The TCP client to use for the connection.</param>
-        /// <param name="certificate">The TLS certificate to use (null if TLS is disabled).</param>
-        /// <param name="implicitTls">
-        /// Indicates whether TLS should be started immediately (implicit) or later via explicit upgrade (AUTH TLS).
-        /// Default is false (explicit TLS).
-        /// </param>
-        public AsyncTcpFtpConnection(TcpClient tcpClient, X509Certificate2 certificate, bool implicitTls = false)
+        /// <param name="certificate">The TLS certificate to use, or null if TLS is disabled.</param>
+        /// <param name="implicitTls">Indicates whether TLS should be applied immediately (true) or explicitly later (false). Defaults to false.</param>
+        /// <exception cref="ArgumentNullException">Thrown if tcpClient is null.</exception>
+        public TcpFtpConnection(TcpClient tcpClient, X509Certificate2 certificate, bool implicitTls = false)
         {
             if (tcpClient == null)
                 throw new ArgumentNullException(nameof(tcpClient), "The client cannot be null.");
@@ -41,26 +39,36 @@ namespace Group14.FtpServer
 
             if (_certificate != null && _implicitTls)
             {
-                try
-                {
-                    var sslStream = new SslStream(_stream, false);
-                    sslStream.AuthenticateAsServer(_certificate);
-                    _stream = sslStream;
-                }
-                catch (AuthenticationException ex)
-                {
-                    throw new InvalidOperationException("Failed to authenticate TLS connection.", ex);
-                }
+                UpgradeToTlsImmediate();
             }
 
-            _reader = new StreamReader(_stream, Encoding.ASCII);
-            _writer = new StreamWriter(_stream, Encoding.ASCII) { AutoFlush = true };
+            InitializeStreams();
+        }
+
+        private void InitializeStreams()
+        {
+            _reader = new StreamReader(_stream, Encoding.ASCII, leaveOpen: true);
+            _writer = new StreamWriter(_stream, Encoding.ASCII, leaveOpen: true) { AutoFlush = true };
+        }
+
+        private void UpgradeToTlsImmediate()
+        {
+            try
+            {
+                var sslStream = new SslStream(_stream, false);
+                sslStream.AuthenticateAsServer(_certificate);
+                _stream = sslStream;
+            }
+            catch (AuthenticationException ex)
+            {
+                throw new InvalidOperationException("Failed to authenticate TLS connection.", ex);
+            }
         }
 
         /// <summary>
-        /// Upgrades the current connection to TLS.
-        /// This is used for explicit TLS when the client sends the AUTH TLS command.
+        /// Upgrades the connection to TLS explicitly, typically after an AUTH TLS command.
         /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown if TLS is not configured or already active.</exception>
         public async Task UpgradeToTlsAsync()
         {
             if (_certificate == null)
@@ -70,12 +78,9 @@ namespace Group14.FtpServer
                 throw new InvalidOperationException("Connection is already secured with TLS.");
 
             var sslStream = new SslStream(_stream, leaveInnerStreamOpen: true);
-            await sslStream.AuthenticateAsServerAsync(_certificate, clientCertificateRequired: false,
-                                                        enabledSslProtocols: SslProtocols.Tls12,
-                                                        checkCertificateRevocation: false);
+            await sslStream.AuthenticateAsServerAsync(_certificate);
             _stream = sslStream;
-            _reader = new StreamReader(_stream, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
-            _writer = new StreamWriter(_stream, Encoding.ASCII, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
+            InitializeStreams();
         }
 
         /// <summary>
@@ -83,8 +88,11 @@ namespace Group14.FtpServer
         /// </summary>
         /// <returns></returns>
         public Stream GetStream() 
-        {  
-            return _stream; 
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(TcpFtpConnection));
+
+            return _stream;
         }
 
         /// <summary>
@@ -94,7 +102,7 @@ namespace Group14.FtpServer
         public async Task<string> ReadCommandAsync()
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(AsyncTcpFtpConnection), "The connection has been disposed.");
+                throw new ObjectDisposedException(nameof(TcpFtpConnection), "The connection has been disposed.");
 
             try
             {
@@ -108,16 +116,19 @@ namespace Group14.FtpServer
 
 
         /// <summary>
-        /// Sends a response to the client.
+        /// Sends a response to the client asynchronously.
         /// </summary>
         /// <param name="response">The response string to send.</param>
+        /// <exception cref="ArgumentException">Thrown if response is null or empty.</exception>
+        /// <exception cref="ObjectDisposedException">Thrown if the connection has been disposed.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if sending fails due to a network error.</exception>
         public async Task SendResponseAsync(string response)
         {
             if (string.IsNullOrEmpty(response))
                 throw new ArgumentException("Response cannot be null or empty.", nameof(response));
 
             if (_disposed)
-                throw new ObjectDisposedException(nameof(AsyncTcpFtpConnection), "The connection has been disposed.");
+                throw new ObjectDisposedException(nameof(TcpFtpConnection), "The connection has been disposed.");
 
             if (!_tcpClient.Connected)
                 return;
@@ -137,20 +148,22 @@ namespace Group14.FtpServer
         /// Closes the connection, releasing all resoruces. Equivalent to Dispose().
         /// </summary>
         public async Task CloseAsync()
-            // Consider providing a Close() method in addition to the Dispose() method if close is standard
-                                            // terminology in the area.
         {
+            if (_disposed)
+                return;
+
             if (_stream is SslStream sslStream)
             {
                 try
                 {
-                    await sslStream.ShutdownAsync(); 
+                    await sslStream.ShutdownAsync();
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    Console.Error.WriteLine(e);
+                    Console.Error.WriteLine("Error shutting down TLS"); // WE need better logging here
                 }
             }
+
             _tcpClient?.Close();
             _disposed = true;
         }
@@ -160,6 +173,9 @@ namespace Group14.FtpServer
         /// </summary>
         public void Dispose()
         {
+            if (_disposed)
+                return;
+
             _writer?.Dispose();
             _reader?.Dispose();
             _stream?.Dispose();

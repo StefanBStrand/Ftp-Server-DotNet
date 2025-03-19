@@ -1,92 +1,84 @@
-﻿using System.Net.Sockets;
-using System.Text;
+﻿using System.Text;
 
 namespace Group14.FtpServer.CommandHandlers
 {
     /// <summary>
-    /// Handles the LIST command to show directory contents.
+    /// Handles the LIST command to retrieve and send directory contents to the client.
     /// </summary>
     public class ListCommandHandler : IAsyncFtpCommandHandler
     {
         private readonly IBackendStorage _storage;
-        private readonly IDataConnectionHandler _dataHandler;
+        private readonly IDataConnectionHandler _dataConnectionHandler;
         private readonly IListFormatter _formatter;
+        private const string NotAuthenticatedResponse = "530 Please login with USER and PASS.";
+        private const string OpeningResponse = "150 Here is the directory listing";
+        private const string SuccessResponse = "226 Directory sending ok";
+        private const string FailureResponsePrefix = "550 Failed to list directory: ";
+
+        /// <summary>
+        /// Gets the command string this handler processes.
+        /// </summary>
         public string Command => "LIST";
 
         /// <summary>
-        /// Initializes a new instance of the ListCommandHandler.
+        /// Initializes a new instance of the ListCommandHandler class.
         /// </summary>
-        /// <param name="storage">The backend storage for retrieving directory contents.</param>
-        /// <param name="pasvHandler">The PASV command handler for managing data connections.</param>
+        /// <param name="storage">The backend storage used to retrieve directory contents.</param>
+        /// <param name="dataConnectionHandler">The handler managing data connections for file transfers.</param>
         /// <param name="formatter">The formatter used to format directory listings.</param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown if storage, pasvHandler, or formatter is null.
-        /// </exception>
-        public ListCommandHandler(IBackendStorage storage, PasvCommandHandler pasvHandler, IListFormatter formatter)
+        /// <exception cref="ArgumentNullException">Thrown if any parameter is null.</exception>
+        public ListCommandHandler(IBackendStorage storage, IDataConnectionHandler dataConnectionHandler, IListFormatter formatter)
         {
             if (storage == null)
                 throw new ArgumentNullException(nameof(storage), "Storage can't be null.");
 
-            if (pasvHandler == null)
-                throw new ArgumentNullException(nameof(pasvHandler), "Pasv handler can't be null.");
+            if (dataConnectionHandler == null)
+                throw new ArgumentNullException(nameof(dataConnectionHandler), "Data connection handler can't be null.");
 
             if (formatter == null)
                 throw new ArgumentNullException(nameof(formatter), "Formatter can't be null.");
 
             _storage = storage;
-            _dataHandler = pasvHandler;
+            _dataConnectionHandler = dataConnectionHandler;
             _formatter = formatter;
         }
 
         /// <summary>
-        /// Processes an FTP command and returns a response
+        /// Processes the LIST command to send directory contents to the client over a data connection.
         /// </summary>
-        /// <param name="command">The full command string from the client</param>
-        /// <param name="connection">The connection to the client</param>
-        /// <param name="session">The current session state</param>
-        /// <returns>FTP response code and message</returns>
+        /// <param name="command">The full command string received from the client.</param>
+        /// <param name="connection">The active connection to the client.</param>
+        /// <param name="session">The current FTP session state.</param>
+        /// <returns>A response string indicating the result of the operation.</returns>
         public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+            {
+                return NotAuthenticatedResponse;
+            }
 
             try
             {
-                IEnumerable<FileItem> files = await _storage.ListAllFilesAsync(session.CurrentDirectory);
-                List<string> responseLines = new List<string>();
+                var files = await _storage.ListAllFilesAsync(session.CurrentDirectory);
+                var responseLines = files.Select(file => _formatter.FormatFileItem(file)).ToList();
+                var response = string.Join("\r\n", responseLines);
 
-                foreach (FileItem file in files)
-                {
-                    string formattedLine = _formatter.FormatFileItem(file);
-                    responseLines.Add(formattedLine);
-                }
+                await connection.SendResponseAsync(OpeningResponse);
 
-                string response = string.Join("\r\n", responseLines);
+                using var dataClient = _dataConnectionHandler.GetDataClient(session);
+                using var stream = dataClient.GetStream();
+                using var writer = new StreamWriter(stream, Encoding.ASCII);
 
-                connection.SendResponseAsync("150 Here is the directory listing");
+                await writer.WriteAsync(response);
+                await writer.FlushAsync();
 
-                TcpClient dataClient = _dataHandler.GetDataClient(session);
-                using (Stream stream = dataClient.GetStream())
-                using (StreamWriter writer = new StreamWriter(stream, Encoding.ASCII))
-                {
-                    await writer.WriteAsync(response);
-                    await writer.FlushAsync();
-                }
-                dataClient.Close();
-
-                if (_dataHandler is PasvCommandHandler pasvHandler)
-                {
-                    pasvHandler.CloseDataChannel(session);
-                }
-                return "226 Directory sending ok";
+                _dataConnectionHandler.CloseDataChannel(session);
+                return SuccessResponse;
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                if (_dataHandler is PasvCommandHandler pasvHandler)
-                {
-                    pasvHandler.CloseDataChannel(session);
-                }
-                return $"550 Failed to list directory: {ex.Message}";
+                _dataConnectionHandler.CloseDataChannel(session);
+                return $"{FailureResponsePrefix}{e.Message}";
             }
         }
     }

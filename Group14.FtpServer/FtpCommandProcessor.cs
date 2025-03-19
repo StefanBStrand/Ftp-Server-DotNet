@@ -4,14 +4,23 @@ using Microsoft.Extensions.Logging;
 namespace Group14.FtpServer
 {
     /// <summary>
-    /// Standard implementation to reroute the comands
+    /// Processes FTP commands by routing them to the appropriate handlers.
     /// </summary>
-    public class DefaultFtpCommandProcessor : IAsyncFtpCommandProcessor
+    public class FtpCommandProcessor : IAsyncFtpCommandProcessor
     {
         private readonly IFtpCommandHandlerFactory _commandHandlerFactory;
         private readonly ILogger<IAsyncFtpCommandProcessor> _logger;
 
-        public DefaultFtpCommandProcessor(
+        /// <summary>
+        /// Initializes a new instance of the FtpCommandProcessor> class with the specified dependencies.
+        /// </summary>
+        /// <param name="backendStorage">The storage backend for file operations.</param>
+        /// <param name="authenticationProvider">The authentication provider for user validation.</param>
+        /// <param name="listFormatter">The formatter for directory listings.</param>
+        /// <param name="options">The server configuration options. Can be null.</param>
+        /// <param name="logger">The logger for command processing events. Can be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any required parameter is null.</exception>
+        public FtpCommandProcessor(
             IBackendStorage backendStorage,
             IAuthenticationProvider authenticationProvider,
             IListFormatter listFormatter,
@@ -34,20 +43,37 @@ namespace Group14.FtpServer
             _commandHandlerFactory = new FtpCommandHandlerFactory(backendStorage, authenticationProvider, listFormatter, options);
         }
 
-        public DefaultFtpCommandProcessor(
+        /// <summary>
+        /// Initializes a new instance of theFtpCommandProcessor class without server options.
+        /// </summary>
+        public FtpCommandProcessor(
             IBackendStorage backendStorage,
             IAuthenticationProvider authenticationProvider,
             IListFormatter listFormatter,
             ILogger<IAsyncFtpCommandProcessor> logger)
         : this(backendStorage, authenticationProvider, listFormatter, null, logger) { }
 
-        public DefaultFtpCommandProcessor(
+
+        /// <summary>
+        /// Initializes a new instance of the FtpCommandProcessor class without a logger.
+        /// </summary>
+        public FtpCommandProcessor(
             IBackendStorage backendStorage,
             IAuthenticationProvider authenticationProvider,
             IListFormatter listFormatter,
             FtpServerOptions options)
         : this(backendStorage, authenticationProvider, listFormatter, options, null) { }
 
+
+        /// <summary>
+        /// Processes an FTP command asynchronously and returns the response.
+        /// </summary>
+        /// <param name="command">The full command string received from the client.</param>
+        /// <param name="connection">The connection to the client.</param>
+        /// <param name="session">The current session state.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains the FTP response code and message.</returns>
+        /// <exception cref="ArgumentException">Thrown if the command is null or empty.</exception>
+        /// <exception cref="NotSupportedException">Thrown if no handler is found for the command.</exception>
         public async Task<string> ProcessCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             _logger?.LogInformation("Received command: {Command}", command);

@@ -1,76 +1,85 @@
-﻿using System.Net.Sockets;
-
-namespace Group14.FtpServer.CommandHandlers
+﻿namespace Group14.FtpServer.CommandHandlers
 {
     /// <summary>
-    /// Handles the RETR command to retrieve a file.
+    /// Handles the RETR command to retrieve a file from the server.
     /// </summary>
     public class RetrCommandHandler : IAsyncFtpCommandHandler
     {
-        private readonly IBackendStorage _storage;
-        private readonly IDataConnectionHandler _dataHandler;
+        private readonly IBackendStorage _storageBackend;
+        private readonly IDataConnectionHandler _dataConnectionHandler;
+        private const string NotAuthenticatedResponse = "530 Please login with USER and PASS.";
+        private const string SyntaxErrorResponse = "501 Syntax error in parameters.";
+        private const string OpeningConnectionResponse = "150 Opening data connection for file transfer.";
+        private const string TransferCompleteResponse = "226 Transfer complete.";
+        private const string FailureResponse = "550 File unavailable or retrieval failed.";
+
+        /// <summary>
+        /// Gets the command string this handler processes.
+        /// </summary>
         public string Command => "RETR";
+
 
         /// <summary>
         /// Initializes a new instance of the RetrCommandHandler class.
         /// </summary>
-        /// <param name="storage">The backend storage responsible for retrieving file from.</param>
-        /// <param name="dataHandler">The data handler used to retrieve the file.</param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown if the storage or datahandler is null.
-        /// </exception>
-        public RetrCommandHandler(IBackendStorage storage, IDataConnectionHandler dataHandler)
+        /// <param name="storageBackend">The storage backend used to retrieve the file.</param>
+        /// <param name="dataConnectionHandler">The handler managing data connections for file transfers.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any parameter is null.</exception>
+        public RetrCommandHandler(IBackendStorage storageBackend, IDataConnectionHandler dataConnectionHandler)
         {
-            if (storage == null)
-                throw new ArgumentNullException(nameof(storage), "Storage type can't be null.");
+            if (storageBackend == null)
+                throw new ArgumentNullException(nameof(storageBackend), "Storage backend can't be null.");
 
-            if (dataHandler == null)
-                throw new ArgumentNullException(nameof(dataHandler), "Data handler can't be null.");
+            if (dataConnectionHandler == null)
+                throw new ArgumentNullException(nameof(dataConnectionHandler), "Data connection handler can't be null.");
 
-            _storage = storage;
-            _dataHandler = dataHandler;
+            _storageBackend = storageBackend;
+            _dataConnectionHandler = dataConnectionHandler;
         }
 
         /// <summary>
-        /// Processes an FTP command and returns a response
+        /// Processes the RETR command to retrieve a file and send it over the data connection.
         /// </summary>
-        /// <param name="command">The full command string from the client</param>
-        /// <param name="connection">The connection to the client</param>
-        /// <param name="session">The current session state</param>
-        /// <returns>FTP response code and message</returns>
+        /// <param name="command">The full command string received from the client.</param>
+        /// <param name="connection">The active connection to the client.</param>
+        /// <param name="session">The current FTP session state.</param>
+        /// <returns>A response string indicating the result of the operation.</returns>
         public async Task<string> HandleCommandAsync(string command, IAsyncFtpConnection connection, IFtpSession session)
         {
             if (!session.IsAuthenticated)
-                return "530 Please login with USER and PASS.";
+            {
+                return NotAuthenticatedResponse;
+            }
 
-            var parts = command.Split(' ', 2);
-            if (parts.Length < 2)
-                return "501 Syntax error in parameters.";
+            var commandArguments = command.Split(' ', 2);
 
-            var fileName = parts[1].Trim();
-            var filePath = Path.Combine(session.CurrentDirectory, fileName).Replace('\\', '/');
+            if (commandArguments.Length < 2)
+            {
+                return SyntaxErrorResponse;
+            }
+
+            var targetFileName = commandArguments[1].Trim();
+            var filePath = Path.Combine(session.CurrentDirectory, targetFileName).Replace('\\', '/');
 
             try
             {
-                byte[] retrievedData = await _storage.RetrieveFileAsync(filePath);
-                connection.SendResponseAsync("150 Opening data connection for file transfer.");
+                byte[] fileData = await _storageBackend.RetrieveFileAsync(filePath);
+                await connection.SendResponseAsync(OpeningConnectionResponse);
 
-                TcpClient dataClient = _dataHandler.GetDataClient(session);
+                using var dataClient = _dataConnectionHandler.GetDataClient(session);
+                using var stream = dataClient.GetStream();
 
-                using (Stream stream = dataClient.GetStream())
-                {
-                    await stream.WriteAsync(retrievedData, 0, retrievedData.Length);
-                    await stream.FlushAsync();
-                }
+                await stream.WriteAsync(fileData, 0, fileData.Length);
+                await stream.FlushAsync();
 
-                dataClient.Close();
-                _dataHandler.CloseDataChannel(session);
-                return "226 Transfer complete.";
+                _dataConnectionHandler.CloseDataChannel(session);
+                return TransferCompleteResponse;
             }
+
             catch (Exception)
             {
-                _dataHandler.CloseDataChannel(session);
-                return "550 File unavailable or retrieval failed.";
+                _dataConnectionHandler.CloseDataChannel(session);
+                return FailureResponse;
             }
         }
     }

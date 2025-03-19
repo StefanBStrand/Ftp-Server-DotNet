@@ -3,7 +3,7 @@ using System.Text;
 using Group14.FtpServer.Handlers;
 using Microsoft.Extensions.Logging;
 
-namespace Group14.FtpServer.Tests
+namespace Group14.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
 {
     [TestClass]
     public class ScenarioTwoTests
@@ -19,17 +19,17 @@ namespace Group14.FtpServer.Tests
             var listFormatter = new UnixListFormatter();
             var options = new FtpServerOptions { Port = 2121, EnableTls = false }; // NOTE - No TLS, Fixed port.
             _logger = new TestLogger();
-            var commandProcessor = new DefaultFtpCommandProcessor(storage, authProvider, listFormatter, options, _logger);
+            var commandProcessor = new FtpCommandProcessor(storage, authProvider, listFormatter, options, _logger);
             var listener = new TcpConnectionListener(options);
             var sessionFactory = new DefaultFtpSessionFactory(storage);
             _server = new FtpServer(listener, commandProcessor, _logger, sessionFactory);
-            _server.Start().Wait();
+            _server.StartAsync().Wait();
         }
 
         [TestCleanup]
         public void Teardown()
         {
-            _server.Stop().Wait();
+            _server.StopAsync().Wait();
         }
 
         [TestMethod]
@@ -72,7 +72,7 @@ namespace Group14.FtpServer.Tests
             }
 
             response = await reader.ReadLineAsync();
-            Assert.AreEqual("226 File stored successfully", response);
+            Assert.AreEqual("226 File stored successfully.", response);
 
             // get data from db
             await writer.WriteLineAsync("PASV");
@@ -177,7 +177,7 @@ namespace Group14.FtpServer.Tests
             int portHigh = int.Parse(parts[4]);
             int portLow = int.Parse(parts[5]);
 
-            return (portHigh * 256) + portLow;
+            return portHigh * 256 + portLow;
         }
     }
 
@@ -234,7 +234,7 @@ namespace Group14.FtpServer.Tests
         }
     }
 
-    public class TestLogger : ILogger, ILogger<IAsyncFtpCommandProcessor>
+    public class TestLogger : ILogger<IFtpServer>, ILogger<IAsyncFtpCommandProcessor>
     {
         public List<string> LoggedCommands { get; } = new List<string>();
 

@@ -4,30 +4,31 @@ using Microsoft.Extensions.Logging;
 namespace Group14.FtpServer
 {
     /// <summary>
-    /// Standard implementation managing client connections and commands.
-    /// Dependencies are injected through the constructor.
+    /// Represents an FTP server that manages client connections and processes FTP commands.
+    /// Dependencies are injected via the constructor to enable flexibility and testability.
     /// </summary>
-    public class FtpServer : AsyncIFtpServer
+    public class FtpServer : IFtpServer
     {
         private readonly IFtpConnectionListener _listener;
         private readonly IAsyncFtpCommandProcessor _commandProcessor;
         private bool _isRunning;
-        private readonly ILogger _logger;
+        private readonly ILogger<IFtpServer> _logger;
         private readonly IFtpSessionFactory _sessionFactory;
 
         /// <summary>
-        /// Initializes a new FTP server with the specified components and a logger.
+        /// Initializes a new instance of the FtpServer class with the specified components and an optional logger.
         /// </summary>
-        /// <param name="listener">The listener to use.</param>
-        /// <param name="commandProcessor">The command processor to use.</param>
-        /// <param name="sessionFactory">The factory for creating client sessions.</param>
+        /// <param name="listener">The connection listener responsible for accepting incoming FTP client connections.</param>
+        /// <param name="commandProcessor">The processor responsible for handling FTP commands from clients.</param>
+        /// <param name="logger">The logger used to record server events. Can be null if logging is not required.</param>
+        /// <param name="sessionFactory">The factory responsible for creating client session instances.</param>
         /// <exception cref="ArgumentNullException">
-        /// Thrown if either listener, command processor or or session factory is null.
+        /// Thrown when listener, commandProcessor, sessionFactory is null.
         /// </exception>
         public FtpServer(
             IFtpConnectionListener listener,
             IAsyncFtpCommandProcessor commandProcessor,
-            ILogger logger,
+            ILogger<IFtpServer> logger,
             IFtpSessionFactory sessionFactory)
         {
             if (listener == null)
@@ -47,13 +48,13 @@ namespace Group14.FtpServer
         }
 
         /// <summary>
-        /// Initializes a new FTP server with the specified components, without logging.
+        /// Initializes a new instance of the FtpServer class with the specified components, excluding logging support.
         /// </summary>
-        /// <param name="listener">The listener to use.</param>
-        /// <param name="commandProcessor">The command processor to use.</param>
-        /// <param name="sessionFactory">The factory for creating client sessions.</param>
+        /// <param name="listener">The connection listener responsible for accepting incoming FTP client connections.</param>
+        /// <param name="commandProcessor">The processor responsible for handling FTP commands from clients.</param>
+        /// <param name="sessionFactory">The factory responsible for creating client session instances.</param>
         /// <exception cref="ArgumentNullException">
-        /// Thrown if either listener, command processor, authentication provider or session factory is null.
+        /// Thrown when listener, commandProcessor, sessionFactory is null.
         /// </exception>
         public FtpServer(
             IFtpConnectionListener listener,
@@ -64,13 +65,13 @@ namespace Group14.FtpServer
 
 
         /// <summary>
-        /// Initializes a new FTP server with default settings.
+        /// Initializes a new instance of the FtpServer class with default component implementations.
         /// </summary>
         /// <param name="options">The configuration options for the server. If null, default options are used.</param>
         public FtpServer(FtpServerOptions options = null)
             : this(
                 new TcpConnectionListener(options ??= new FtpServerOptions()),
-                new DefaultFtpCommandProcessor(
+                new FtpCommandProcessor(
                     new LocalFileStorage(options.RootPath),
                     new SimpleAuthenticationProvider(),
                     new UnixListFormatter(),
@@ -79,9 +80,10 @@ namespace Group14.FtpServer
         { }
 
         /// <summary>
-        /// Starts the server.
+        /// Starts the FTP server asynchronously and begins accepting client connections.
         /// </summary>
-        public async Task<string> Start()
+        /// <returns>A task that resolves to a message indicating the result of the operation.</returns>
+        public async Task<string> StartAsync()
         {
             if (_isRunning)
                 return "Server is already running.";
@@ -93,9 +95,10 @@ namespace Group14.FtpServer
         }
 
         /// <summary>
-        /// Stops the server.
+        /// Stops the FTP server asynchronously, ceasing to accept new connections.
         /// </summary>
-        public Task<string> Stop()
+        /// <returns>A task that resolves to a message indicating the result of the operation.</returns>
+        public Task<string> StopAsync()
         {
             if (!_isRunning)
                 return Task.FromResult("Server is not running.");
@@ -106,7 +109,7 @@ namespace Group14.FtpServer
         }
 
         /// <summary>
-        /// Accepts incoming connections.
+        /// Continuously accepts incoming client connections while the server is running.
         /// </summary>
         private async Task AcceptConnectionsAsync()
         {
