@@ -3,11 +3,7 @@ using System.Text;
 using Group4.FtpServer.Handlers;
 using Microsoft.Extensions.Logging;
 
-<<<<<<<< HEAD:Group4.FtpServer.Tests/ScenarioTests/ScenarioTwoTests/ScenarioTwoTests.cs
 namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
-========
-namespace Group14.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
->>>>>>>> origin/main:Group14.FtpServer.Tests/ScenarioTests/ScenarioTwoTests/ScenarioTwoTests.cs
 {
     [TestClass]
     public class ScenarioTwoTests
