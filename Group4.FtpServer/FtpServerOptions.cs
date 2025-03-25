@@ -35,8 +35,9 @@ namespace Group4.FtpServer
 
         /// <summary>
         /// Gets or sets the root path for file storage. Defaults to the current directory.
+        /// Null is default indicating no local storage is enabled.
         /// </summary>
-        public string RootPath { get; set; } = Directory.GetCurrentDirectory();
+        public string? RootPath { get; set; } = null;
 
         /// <summary>
         /// Gets or sets the IP address advertised in PASV responses. Defaults to the listener IP.
