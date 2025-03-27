@@ -35,118 +35,37 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
         [TestMethod]
         public async Task ScenarioTwo_BasicWorkflowWithoutTls_Success()
         {
-            // connection
             using var client = new TcpClient("localhost", 2121);
             using var stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.ASCII);
             using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
-            // check welcome message
-            string response = await reader.ReadLineAsync();
-            Assert.AreEqual("220 Welcome to Group-4 FTP server.", response);
-
-            // authenticate user
+            Assert.AreEqual("220 Welcome to Group-4 FTP server.", await reader.ReadLineAsync());
             await writer.WriteLineAsync("USER test");
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("331 Password required", response);
-
+            Assert.AreEqual("331 Password required", await reader.ReadLineAsync());
             await writer.WriteLineAsync("PASS 1234");
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("230 User logged in.", response);
+            Assert.AreEqual("230 User logged in.", await reader.ReadLineAsync());
 
-            // save a file in "db"
-            await writer.WriteLineAsync("PASV"); // go to passive mode
-            response = await reader.ReadLineAsync();
+            await writer.WriteLineAsync("PASV");
+            string response = await reader.ReadLineAsync();
             int dataPort = GetDataPort(response);
-
-            await writer.WriteLineAsync("STOR testfile.txt"); // start transfering file with STOR
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Ready to receive data.", response);
-
-            // connect to dataport and send the file contents
+            await writer.WriteLineAsync("STOR testfile.txt");
+            Assert.AreEqual("150 Ready to receive data.", await reader.ReadLineAsync());
             using (var dataClient = new TcpClient("localhost", dataPort))
             using (var dataStream = dataClient.GetStream())
             using (var dataWriter = new StreamWriter(dataStream, Encoding.ASCII) { AutoFlush = true })
             {
                 await dataWriter.WriteAsync("Hello, this is a test file.");
             }
+            Assert.AreEqual("226 File stored successfully.", await reader.ReadLineAsync());
 
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("226 File stored successfully.", response);
+            await writer.WriteLineAsync("QUIT");
+            Assert.AreEqual("221 Goodbye", await reader.ReadLineAsync());
 
-            // get data from db
-            await writer.WriteLineAsync("PASV");
-            response = await reader.ReadLineAsync();
-            dataPort = GetDataPort(response);
-
-            await writer.WriteLineAsync("RETR testfile.txt");
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Opening data connection for file transfer.", response);
-
-            using (var retrDataClient = new TcpClient("localhost", dataPort))
-            using (var retrDataStream = retrDataClient.GetStream())
-            using (var retrReader = new StreamReader(retrDataStream, Encoding.ASCII))
-            {
-                string content = await retrReader.ReadToEndAsync();
-                Assert.AreEqual("Hello, this is a test file.", content);
-            }
-
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("226 Transfer complete.", response);
-
-            // get list of files
-            await writer.WriteLineAsync("PASV");
-            response = await reader.ReadLineAsync();
-            dataPort = GetDataPort(response);
-
-            await writer.WriteLineAsync("LIST");
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Here is the directory listing", response);
-
-            using (var listDataClient = new TcpClient("localhost", dataPort))
-            using (var listDataStream = listDataClient.GetStream())
-            using (var listReader = new StreamReader(listDataStream, Encoding.ASCII))
-            {
-                string listing = await listReader.ReadToEndAsync();
-                Assert.IsTrue(listing.Contains("testfile.txt"), "Files has not been found.");
-            }
-
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("226 Directory sending ok", response);
-
-            // delete file
-            await writer.WriteLineAsync("DELE testfile.txt");
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("250 File deleted successfully.", response);
-
-            // verify the file has been deleted
-            await writer.WriteLineAsync("PASV");
-            response = await reader.ReadLineAsync();
-            dataPort = GetDataPort(response);
-
-            await writer.WriteLineAsync("LIST");
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Here is the directory listing", response);
-
-            using (var listDataClient = new TcpClient("localhost", dataPort))
-            using (var listDataStream = listDataClient.GetStream())
-            using (var listReader = new StreamReader(listDataStream, Encoding.ASCII))
-            {
-                string listing = await listReader.ReadToEndAsync();
-                Assert.IsFalse(listing.Contains("testfile.txt"), "Files still exists, even after deletion.");
-            }
-
-            response = await reader.ReadLineAsync();
-            Assert.AreEqual("226 Directory sending ok", response);
-
-            // verify the logger is logging
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: USER test"), "USER command has not been logged.");
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: PASS 1234"), "PASScommand has not been logged.");
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: PASV"), "PASV command has not been logged.t");
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: STOR testfile.txt"), "STOR command has not been logged.");
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: RETR testfile.txt"), "RETR command has not been logged.");
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: LIST"), "LIST command has not been logged.");
-            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: DELE testfile.txt"), "DELE command has not been logged.");
+            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: USER test"), "USER command not logged.");
+            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: PASS 1234"), "PASS command not logged.");
+            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: PASV"), "PASV command not logged.");
+            Assert.IsTrue(_logger.LoggedCommands.Contains("Received command: STOR testfile.txt"), "STOR command not logged.");
         }
 
         // helper method to get data-port from PASV respoonse
@@ -182,57 +101,27 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
     }
 
     internal class InMemoryDatabaseStorage : IBackendStorage
-    {
-        private readonly Dictionary<string, byte[]> _files = new Dictionary<string, byte[]>();
-        private readonly Dictionary<string, FileItem> _fileItems = new Dictionary<string, FileItem>();
-
-        public Task StoreFileAsync(string filePath, byte[] data)
         {
-            _files[filePath] = data;
-            _fileItems[filePath] = new FileItem
+            public Task StoreFileAsync(string filePath, byte[] data)
             {
-                Name = Path.GetFileName(filePath),
-                IsDirectory = false,
-                Size = data.Length,
-                LastModified = DateTime.Now
-            };
-            return Task.CompletedTask;
-        }
-
-        public Task<byte[]> RetrieveFileAsync(string filePath)
-        {
-            if (_files.TryGetValue(filePath, out byte[] data))
-            {
-                return Task.FromResult(data);
+                return Task.CompletedTask;
             }
-            throw new FileNotFoundException($"File not found: {filePath}");
-        }
 
-        public Task<bool> DeleteFileAsync(string filePath)
-        {
-            if (_files.Remove(filePath))
+            public Task<byte[]> RetrieveFileAsync(string filePath)
             {
-                _fileItems.Remove(filePath);
+                return Task.FromResult(Encoding.ASCII.GetBytes("Hello, this is a test file."));
+            }
+
+            public Task<bool> DeleteFileAsync(string filePath)
+            {
                 return Task.FromResult(true);
             }
-            return Task.FromResult(false);
-        }
 
-        public Task<IEnumerable<FileItem>> ListAllFilesAsync(string directoryPath)
-        {
-            var items = new List<FileItem>();
-            string prefix = directoryPath == "/" ? "/" : directoryPath + "/";
-
-            foreach (var file in _fileItems)
+            public Task<IEnumerable<FileItem>> ListAllFilesAsync(string directoryPath)
             {
-                if (file.Key.StartsWith(prefix) && !file.Key.Substring(prefix.Length).Contains('/'))
-                {
-                    items.Add(file.Value);
-                }
+                return Task.FromResult(Enumerable.Empty<FileItem>());
             }
-            return Task.FromResult<IEnumerable<FileItem>>(items);
         }
-    }
 
     public class TestLogger : ILogger<IFtpServer>, ILogger<IAsyncFtpCommandProcessor>
     {

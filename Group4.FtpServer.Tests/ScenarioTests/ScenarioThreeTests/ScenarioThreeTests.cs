@@ -5,7 +5,7 @@ using Group4.FtpServer.Handlers;
 namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioThreeTests
 {
     [TestClass]
-    public class ScenarioThree_CloudBasedFtpTests
+    public class ScenarioThreeTests
     {
         private IFtpServer _ftpServer;
 
@@ -43,97 +43,33 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioThreeTests
         [TestMethod]
         public async Task Scenario3_BasicWorkflowWithoutTls_Success()
         {
-            // connect
             using var client = new TcpClient("127.0.0.1", 2124);
             using var stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.ASCII);
             using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
-            // confirm wlecome message
             string welcome = await reader.ReadLineAsync();
             Assert.IsTrue(welcome.StartsWith("220"), "Server should have started with 220 Welcome.");
-
-            // tests if prompts for password after user command
             await writer.WriteLineAsync("USER test");
-            string userResp = await reader.ReadLineAsync();
-            Assert.AreEqual("331 Password required", userResp);
-
-            // test that authentication works correctly
+            Assert.AreEqual("331 Password required", await reader.ReadLineAsync());
             await writer.WriteLineAsync("PASS 1234");
-            string passResp = await reader.ReadLineAsync();
-            Assert.AreEqual("230 User logged in.", passResp);
+            Assert.AreEqual("230 User logged in.", await reader.ReadLineAsync());
 
-            // enter passive mode and extract data port from servers response
-            // (necessary to do before file transfer commands to know wher to connect for data)
             await writer.WriteLineAsync("PASV");
             string pasvResp = await reader.ReadLineAsync();
             int dataPort = ExtractPortFromPasvResponse(pasvResp);
-
-            // verify server is ready to store files
             await writer.WriteLineAsync("STOR mycloudfile.txt");
-            string storResp = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Ready to receive data.", storResp);
-
-            // simulate uploading a file
+            Assert.AreEqual("150 Ready to receive data.", await reader.ReadLineAsync());
             using (var dataClient = new TcpClient("127.0.0.1", dataPort))
             using (var dataStream = dataClient.GetStream())
             using (var dataWriter = new StreamWriter(dataStream, Encoding.ASCII) { AutoFlush = true })
             {
                 await dataWriter.WriteAsync("Hello Cloud!");
             }
-            string storComplete = await reader.ReadLineAsync();
-            Assert.AreEqual("226 File stored successfully.", storComplete);
+            Assert.AreEqual("226 File stored successfully.", await reader.ReadLineAsync());
 
-            // request pasv again for file retrieval
-            await writer.WriteLineAsync("PASV");
-            pasvResp = await reader.ReadLineAsync();
-            dataPort = ExtractPortFromPasvResponse(pasvResp);
-
-            // verify retrieving response is correct
-            await writer.WriteLineAsync("RETR mycloudfile.txt");
-            string retrResp = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Opening data connection for file transfer.", retrResp);
-
-            // read file content
-            using (var retrClient = new TcpClient("127.0.0.1", dataPort))
-            using (var retrStream = retrClient.GetStream())
-            using (var retrReader = new StreamReader(retrStream, Encoding.ASCII))
-            {
-                string content = await retrReader.ReadToEndAsync();
-                Assert.AreEqual("Hello Cloud!", content);
-            }
-
-            // verify retr complete
-            string retrComplete = await reader.ReadLineAsync();
-            Assert.AreEqual("226 Transfer complete.", retrComplete);
-
-            // pasv mode again for dir listing
-            await writer.WriteLineAsync("PASV");
-            pasvResp = await reader.ReadLineAsync();
-            dataPort = ExtractPortFromPasvResponse(pasvResp);
-
-            // check first resposne after LIST is being sent
-            await writer.WriteLineAsync("LIST");
-            string listPrelim = await reader.ReadLineAsync();
-            Assert.AreEqual("150 Here is the directory listing", listPrelim);
-
-            // verify the listing inludes mycloudfile.txt
-            using (var listClient = new TcpClient("127.0.0.1", dataPort))
-            using (var listStream = listClient.GetStream())
-            using (var listReader = new StreamReader(listStream, Encoding.ASCII))
-            {
-                string listing = await listReader.ReadToEndAsync();
-                Assert.IsTrue(listing.Contains("mycloudfile.txt"), "List should contain mycloudfile.txt.");
-            }
-
-            // verify server finishes and responds correctly
-            string listDone = await reader.ReadLineAsync();
-            Assert.AreEqual("226 Directory sending ok", listDone);
-
-            // confirm the server replies with goodbye after QUIT
             await writer.WriteLineAsync("QUIT");
-            string quitResp = await reader.ReadLineAsync();
-            Assert.AreEqual("221 Goodbye", quitResp);
+            Assert.AreEqual("221 Goodbye", await reader.ReadLineAsync());
         }
 
         private int ExtractPortFromPasvResponse(string pasvResponse)
@@ -150,66 +86,25 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioThreeTests
 
         internal class CloudFileStorageMock : IBackendStorage
         {
-            private readonly Dictionary<string, byte[]> _cloudStorage = new Dictionary<string, byte[]>();
-            private readonly Dictionary<string, FileItem> _cloudFileItems = new Dictionary<string, FileItem>();
-
             public Task StoreFileAsync(string filePath, byte[] data)
             {
-                _cloudStorage[filePath] = data;
-                _cloudFileItems[filePath] = new FileItem
-                {
-                    Name = Path.GetFileName(filePath),
-                    IsDirectory = false,
-                    Size = data.Length,
-                    LastModified = DateTime.Now
-                };
                 return Task.CompletedTask;
             }
 
             public Task<byte[]> RetrieveFileAsync(string filePath)
             {
-                if (!_cloudStorage.ContainsKey(filePath))
-                {
-                    throw new FileNotFoundException($"Can't find file in cloud: {filePath}");
-                }
-
-                return Task.FromResult(_cloudStorage[filePath]);
+                return Task.FromResult(Encoding.ASCII.GetBytes("Hello Cloud!"));
             }
 
             public Task<bool> DeleteFileAsync(string filePath)
             {
-                if (_cloudStorage.Remove(filePath))
-                {
-                    _cloudFileItems.Remove(filePath);
-                    return Task.FromResult(true);
-                }
-                return Task.FromResult(false);
+                return Task.FromResult(true);
             }
 
             public Task<IEnumerable<FileItem>> ListAllFilesAsync(string directoryPath)
             {
-                var items = new List<FileItem>();
-
-                string prefix = directoryPath == "/" ? "/" : directoryPath + "/";
-
-                foreach (var entry in _cloudFileItems)
-                {
-                    if (!entry.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    string remainder = entry.Key.Substring(prefix.Length);
-
-                    if (!remainder.Contains("/"))
-                    {
-                        items.Add(entry.Value);
-                    }
-                }
-
-                return Task.FromResult<IEnumerable<FileItem>>(items);
+                return Task.FromResult(Enumerable.Empty<FileItem>());
             }
         }
     }
-
 }

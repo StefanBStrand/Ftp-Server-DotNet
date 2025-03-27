@@ -9,7 +9,7 @@
     using System.Text;
 
     [TestClass]
-    public class FtpServerTlsTests
+    public class TlsTests
     {
         private FtpServer _ftpServer;
 
