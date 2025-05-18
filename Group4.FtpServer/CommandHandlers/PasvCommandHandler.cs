@@ -51,7 +51,7 @@ namespace Group4.FtpServer.CommandHandlers
                 if (session.DataListener != null)
                 {
                     session.DataListener.Stop();
-                    session.DataListener = null;
+                    session.DataListener = null!;
                 }
 
                 IPAddress passiveIpAddress = _serverOptions.PasvIpAddress;
@@ -103,7 +103,7 @@ namespace Group4.FtpServer.CommandHandlers
             if (session.DataListener != null)
             {
                 session.DataListener.Stop();
-                session.DataListener = null;
+                session.DataListener = null!;
             }
         }
     }

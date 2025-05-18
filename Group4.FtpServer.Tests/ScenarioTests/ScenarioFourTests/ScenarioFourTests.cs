@@ -7,7 +7,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioFourTests
     [TestClass]
     public class ScenarioFourTests
     {
-        private IFtpServer _ftpServer;
+        private IFtpServer _ftpServer = null!;
 
         [TestInitialize]
         public async Task Setup()
@@ -58,19 +58,19 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioFourTests
             using var reader = new StreamReader(stream, Encoding.ASCII);
             using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
-            string welcome = await reader.ReadLineAsync();
+            string welcome = (await reader.ReadLineAsync())!;
             Assert.IsTrue(welcome.StartsWith("220"), "Server should respond with 220 Welcome.");
             await writer.WriteLineAsync("USER test");
-            Assert.AreEqual("331 Password required", await reader.ReadLineAsync());
+            Assert.AreEqual("331 Password required", (await reader.ReadLineAsync())!);
             await writer.WriteLineAsync("PASS 1234");
-            Assert.AreEqual("230 User logged in.", await reader.ReadLineAsync());
+            Assert.AreEqual("230 User logged in.", (await reader.ReadLineAsync())!);
 
             // store a file in /local
             await writer.WriteLineAsync("PASV");
-            string pasvResp = await reader.ReadLineAsync();
+            string pasvResp = (await reader.ReadLineAsync())!;
             int dataPort = ExtractPortFromPasvResponse(pasvResp);
             await writer.WriteLineAsync("STOR /local/myfile.txt");
-            Assert.AreEqual("150 Ready to receive data.", await reader.ReadLineAsync());
+            Assert.AreEqual("150 Ready to receive data.", (await reader.ReadLineAsync())!);
 
             using (var dataClient = new TcpClient("127.0.0.1", dataPort))
             using (var dataStream = dataClient.GetStream())
@@ -82,7 +82,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioFourTests
 
             // retrieve file from /local
             await writer.WriteLineAsync("PASV");
-            pasvResp = await reader.ReadLineAsync();
+            pasvResp = (await reader.ReadLineAsync())!;
             dataPort = ExtractPortFromPasvResponse(pasvResp);
             await writer.WriteLineAsync("RETR /local/myfile.txt");
             Assert.AreEqual("150 Opening data connection for file transfer.", await reader.ReadLineAsync());
@@ -98,7 +98,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioFourTests
 
             // store a file in /cloud 
             await writer.WriteLineAsync("PASV");
-            pasvResp = await reader.ReadLineAsync();
+            pasvResp = (await reader.ReadLineAsync())!;
             dataPort = ExtractPortFromPasvResponse(pasvResp);
             await writer.WriteLineAsync("STOR /cloud/mycloudfile.txt");
             Assert.AreEqual("150 Ready to receive data.", await reader.ReadLineAsync());
@@ -113,7 +113,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioFourTests
 
             // retrive file from /cloud
             await writer.WriteLineAsync("PASV");
-            pasvResp = await reader.ReadLineAsync();
+            pasvResp = (await reader.ReadLineAsync())!;
             dataPort = ExtractPortFromPasvResponse(pasvResp);
             await writer.WriteLineAsync("RETR /cloud/mycloudfile.txt");
             Assert.AreEqual("150 Opening data connection for file transfer.", await reader.ReadLineAsync());

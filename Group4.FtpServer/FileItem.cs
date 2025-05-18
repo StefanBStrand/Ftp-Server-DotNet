@@ -8,7 +8,7 @@
         /// <summary>
         /// Gets or sets the name of the file or directory
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets whether this is a directory

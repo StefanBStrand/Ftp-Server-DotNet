@@ -8,8 +8,8 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
     [TestClass]
     public class ScenarioTwoTests
     {
-        private FtpServer _server;
-        private TestLogger _logger;
+        private FtpServer _server = null!;
+        private TestLogger _logger = null!;
 
         [TestInitialize]
         public void Setup()
@@ -47,7 +47,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
             Assert.AreEqual("230 User logged in.", await reader.ReadLineAsync());
 
             await writer.WriteLineAsync("PASV");
-            string response = await reader.ReadLineAsync();
+            string response = (await reader.ReadLineAsync())!;
             int dataPort = GetDataPort(response);
             await writer.WriteLineAsync("STOR testfile.txt");
             Assert.AreEqual("150 Ready to receive data.", await reader.ReadLineAsync());
@@ -127,7 +127,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
     {
         public List<string> LoggedCommands { get; } = new List<string>();
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        void ILogger.Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             string message = formatter(state, exception);
             if (message.StartsWith("Received command: "))
@@ -137,7 +137,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioTwoTests
         }
 
         // implementations because of Ilogger
-        public IDisposable BeginScope<TState>(TState state) => null;
+        IDisposable ILogger.BeginScope<TState>(TState state) => null!;
         public bool IsEnabled(LogLevel logLevel) => true;
     }
 }

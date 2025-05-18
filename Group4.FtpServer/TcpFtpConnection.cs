@@ -13,10 +13,10 @@ namespace Group4.FtpServer
     {
         private readonly TcpClient _tcpClient;
         private Stream _stream;
-        private StreamReader _reader;
-        private StreamWriter _writer;
+        private StreamReader _reader = null!;
+        private StreamWriter _writer = null!;
         private bool _disposed;
-        private readonly X509Certificate2 _certificate;
+        private readonly X509Certificate2? _certificate;
         private readonly bool _implicitTls;
 
 
@@ -27,8 +27,12 @@ namespace Group4.FtpServer
         /// <param name="certificate">The TLS certificate to use, or null if TLS is disabled.</param>
         /// <param name="implicitTls">Indicates whether TLS should be applied immediately (true) or explicitly later (false). Defaults to false.</param>
         /// <exception cref="ArgumentNullException">Thrown if tcpClient is null.</exception>
-        public TcpFtpConnection(TcpClient tcpClient, X509Certificate2 certificate, bool implicitTls = false)
+        public TcpFtpConnection(TcpClient tcpClient, X509Certificate2? certificate = null, bool implicitTls = false)
         {
+            // NOTE: this should ideally be split into two overloads based on TLS usage,
+            // but doing so now would break existing implementations relying on this optional parameter.
+            // Perhaps this constructor can be made obsolete in the future.
+
             if (tcpClient == null)
                 throw new ArgumentNullException(nameof(tcpClient), "The client cannot be null.");
 
@@ -45,6 +49,16 @@ namespace Group4.FtpServer
             InitializeStreams();
         }
 
+        /// <summary>
+        /// Initializes a new instance of the TcpFtpConnection class with a TLS certificate,
+        /// but defers the TLS upgrade (AUTH TLS required).
+        /// </summary>
+        /// <param name="tcpClient">The TCP client to use.</param>
+        /// <param name="certificate">The TLS certificate to use.</param>
+        public TcpFtpConnection(TcpClient tcpClient, X509Certificate2 certificate)
+            : this(tcpClient, certificate, false)
+        { }
+
         private void InitializeStreams()
         {
             _reader = new StreamReader(_stream, Encoding.ASCII, leaveOpen: true);
@@ -53,10 +67,11 @@ namespace Group4.FtpServer
 
         private void UpgradeToTlsImmediate()
         {
+            var cert = _certificate!;
             try
             {
                 var sslStream = new SslStream(_stream, false);
-                sslStream.AuthenticateAsServer(_certificate);
+                sslStream.AuthenticateAsServer(cert);
                 _stream = sslStream;
             }
             catch (AuthenticationException ex)
@@ -106,7 +121,8 @@ namespace Group4.FtpServer
 
             try
             {
-                return await _reader.ReadLineAsync();
+                var line = await _reader.ReadLineAsync();
+                return line!;
             }
             catch (IOException ex)
             {
@@ -160,7 +176,7 @@ namespace Group4.FtpServer
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine("Error shutting down TLS"); // WE need better logging here
+                    Console.Error.WriteLine($"Error shutting down TLS: {ex}");
                 }
             }
 

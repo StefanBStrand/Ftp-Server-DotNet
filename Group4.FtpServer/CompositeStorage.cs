@@ -32,7 +32,7 @@
         private IBackendStorage GetBackendForPath(string path)
         {
             string normalizedPath = NormalizePath(path);
-            string bestMatch = null; // start with null as the best match
+            string? bestMatch = null; // start with null as the best match
             int bestMatchLength = -1;
 
             foreach (var mapping in _backendMappings) // go through each mapping 

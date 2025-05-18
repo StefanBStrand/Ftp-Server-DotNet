@@ -11,7 +11,7 @@
     [TestClass]
     public class TlsTests
     {
-        private FtpServer _ftpServer;
+        private FtpServer _ftpServer = null!;
 
         private X509Certificate2 GenerateSelfSignedCertificate() 
             // we generate a self-signed certificate instead of using openssl 

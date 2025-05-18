@@ -22,7 +22,7 @@ namespace Group4.FtpServer
         /// <summary>
         /// Gets or sets the username for the session.
         /// </summary>
-        public string Username { get; set; }
+        public string Username { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets teh transfer type (ASCII or binary).
@@ -32,7 +32,7 @@ namespace Group4.FtpServer
         /// <summary>
         /// Gets or sets the data listener for passive mode.
         /// </summary>
-        public TcpListener DataListener { get; set; } 
+        public TcpListener DataListener { get; set; } = null!;
 
         /// <summary>
         /// Initializes a new instance of DefaultFtpSession with a storage backend.

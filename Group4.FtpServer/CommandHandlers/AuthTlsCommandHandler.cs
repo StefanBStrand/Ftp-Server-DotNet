@@ -47,7 +47,7 @@
             if (connection is TcpFtpConnection tcpConnection)
             {
                 await tcpConnection.UpgradeToTlsAsync();
-                return null;
+                return null!;
             }
 
             throw new InvalidOperationException("Connection does not support TLS upgrade.");

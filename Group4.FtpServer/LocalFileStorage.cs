@@ -12,7 +12,7 @@
         /// Initializes a new instance of the LocalFileStorage class with a specified root directory.
         /// </summary>
         /// <param name="rootPath">The root directory for storing files. If null or empty, the current directory is used.</param>
-        public LocalFileStorage(string rootPath)
+        public LocalFileStorage(string? rootPath)
         {
             // set root to current dir if empty
             if (string.IsNullOrEmpty(rootPath))
@@ -45,10 +45,12 @@
         public async Task StoreFileAsync(string filePath, byte[] data)
         {
             string fullPath = Path.Combine(_rootPath, filePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
-            string directory = Path.GetDirectoryName(fullPath);
+            string? directory = Path.GetDirectoryName(fullPath);
 
-            if (!Directory.Exists(directory))
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
                 Directory.CreateDirectory(directory);
+            }
 
             await File.WriteAllBytesAsync(fullPath, data);
         }

@@ -9,7 +9,8 @@ namespace Group4.FtpServer
     public class FtpCommandProcessor : IAsyncFtpCommandProcessor
     {
         private readonly IFtpCommandHandlerFactory _commandHandlerFactory;
-        private readonly ILogger<IAsyncFtpCommandProcessor> _logger;
+        private readonly ILogger<IAsyncFtpCommandProcessor>? _logger;
+        private readonly ICommandAuthorizer? _commandAuthorizer;
 
         /// <summary>
         /// Initializes a new instance of the FtpCommandProcessor> class with the specified dependencies.
@@ -24,8 +25,9 @@ namespace Group4.FtpServer
             IBackendStorage backendStorage,
             IAuthenticationProvider authenticationProvider,
             IListFormatter listFormatter,
-            FtpServerOptions options,
-            ILogger<IAsyncFtpCommandProcessor> logger)
+            FtpServerOptions? options,
+            ILogger<IAsyncFtpCommandProcessor>? logger,
+            ICommandAuthorizer? commandAuthorizer)
         {
             if (backendStorage == null)
                 throw new ArgumentNullException(nameof(backendStorage), "Backend storage can't be null.");
@@ -36,33 +38,93 @@ namespace Group4.FtpServer
             if (listFormatter == null)
                 throw new ArgumentNullException(nameof(listFormatter), "List formatter can't be null.");
 
-            if (options == null)
-                throw new ArgumentNullException(nameof(options), "The options provided can't be null");
-
             _logger = logger;
-            _commandHandlerFactory = new FtpCommandHandlerFactory(backendStorage, authenticationProvider, listFormatter, options);
+            var actualOptions = options ?? new FtpServerOptions();
+            _commandHandlerFactory = new FtpCommandHandlerFactory(backendStorage, authenticationProvider, listFormatter, actualOptions);
+            _commandAuthorizer = commandAuthorizer;
         }
 
         /// <summary>
-        /// Initializes a new instance of theFtpCommandProcessor class without server options.
+        /// Initializes a new instance of the FtpCommandProcessor class without an authorizer.
         /// </summary>
+        /// <param name="backendStorage">The storage backend.</param>
+        /// <param name="authenticationProvider">The authentication provider.</param>
+        /// <param name="listFormatter">The list formatter.</param>
+        /// <param name="options">The FTP server options.</param>
+        /// <param name="logger">The logger instance.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any required parameter is null.</exception>
         public FtpCommandProcessor(
             IBackendStorage backendStorage,
             IAuthenticationProvider authenticationProvider,
             IListFormatter listFormatter,
+            FtpServerOptions? options,
             ILogger<IAsyncFtpCommandProcessor> logger)
-        : this(backendStorage, authenticationProvider, listFormatter, null, logger) { }
-
+            : this(backendStorage, authenticationProvider, listFormatter, options, logger, null)
+        { }
 
         /// <summary>
         /// Initializes a new instance of the FtpCommandProcessor class without a logger.
         /// </summary>
+        /// <param name="backendStorage">The storage backend.</param>
+        /// <param name="authenticationProvider">The authentication provider.</param>
+        /// <param name="listFormatter">The list formatter.</param>
+        /// <param name="options">The FTP server options.</param>
+        /// <param name="authorizer">The command authorizer.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any required parameter is null.</exception>
+        public FtpCommandProcessor(
+            IBackendStorage backendStorage,
+            IAuthenticationProvider authenticationProvider,
+            IListFormatter listFormatter,
+            FtpServerOptions? options,
+            ICommandAuthorizer authorizer)
+            : this(backendStorage, authenticationProvider, listFormatter, options, null, authorizer)
+        { }
+
+        /// <summary>
+        /// Initializes a new instance of the FtpCommandProcessor class without a logger or authorizer.
+        /// </summary>
+        /// <param name="backendStorage">The storage backend.</param>
+        /// <param name="authenticationProvider">The authentication provider.</param>
+        /// <param name="listFormatter">The list formatter.</param>
+        /// <param name="options">The FTP server options.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any required parameter is null.</exception>
         public FtpCommandProcessor(
             IBackendStorage backendStorage,
             IAuthenticationProvider authenticationProvider,
             IListFormatter listFormatter,
             FtpServerOptions options)
-        : this(backendStorage, authenticationProvider, listFormatter, options, null) { }
+            : this(backendStorage, authenticationProvider, listFormatter, options, null, null)
+        { }
+
+        /// <summary>
+        /// Initializes a new instance of the FtpCommandProcessor class with only a logger (no options or authorizer).
+        /// </summary>
+        /// <param name="backendStorage">The storage backend.</param>
+        /// <param name="authenticationProvider">The authentication provider.</param>
+        /// <param name="listFormatter">The list formatter.</param>
+        /// <param name="logger">The logger instance.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any required parameter is null.</exception>
+        public FtpCommandProcessor(
+            IBackendStorage backendStorage,
+            IAuthenticationProvider authenticationProvider,
+            IListFormatter listFormatter,
+            ILogger<IAsyncFtpCommandProcessor> logger)
+            : this(backendStorage, authenticationProvider, listFormatter, null, logger, null)
+        { }
+
+        /// <summary>
+        /// Initializes a new instance of the FtpCommandProcessor class with only required dependencies.
+        /// </summary>
+        /// <param name="backendStorage">The storage backend.</param>
+        /// <param name="authenticationProvider">The authentication provider.</param>
+        /// <param name="listFormatter">The list formatter.</param>
+        /// <exception cref="ArgumentNullException">Thrown if any required parameter is null.</exception>
+        public FtpCommandProcessor(
+            IBackendStorage backendStorage,
+            IAuthenticationProvider authenticationProvider,
+            IListFormatter listFormatter)
+            : this(backendStorage, authenticationProvider, listFormatter, null, null, null)
+        { }
 
 
         /// <summary>
@@ -82,6 +144,11 @@ namespace Group4.FtpServer
                 return "500 Invalid command.";
 
             var commandName = command.Split(' ')[0];
+
+            if (_commandAuthorizer != null && !_commandAuthorizer.isAuthorized(session, commandName)) {
+                return "550 Permission denied.";
+            }
+
             var handler = _commandHandlerFactory.CreateHandler(commandName);
             return await handler.HandleCommandAsync(command, connection, session);
         }

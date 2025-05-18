@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Group4.FtpServer.Handlers
 {
@@ -12,7 +13,7 @@ namespace Group4.FtpServer.Handlers
         private readonly TcpListener _listener;
         private readonly FtpServerOptions _options;
         private bool _isRunning;
-        private readonly ILogger<IFtpConnectionListener> _logger;
+        private readonly ILogger<IFtpConnectionListener>? _logger;
 
         /// <summary>
         /// Initializes a new TCP listener with specific server options and a specific logger instance.
@@ -20,7 +21,7 @@ namespace Group4.FtpServer.Handlers
         /// <param name="options">The options to base the listener on.</param>
         /// <param name="logger">A specific logger used to log information and errors.</param>
         /// <exception cref="ArgumentNullException">Throw if server options is null.</exception>
-        public TcpConnectionListener(FtpServerOptions options, ILogger<IFtpConnectionListener> logger)
+        public TcpConnectionListener(FtpServerOptions options, ILogger<IFtpConnectionListener>? logger)
         {
             if (options == null)
                 throw new ArgumentNullException(nameof(options), "Server options can't be null.");
@@ -97,9 +98,17 @@ namespace Group4.FtpServer.Handlers
             }
         }
 
-        protected IAsyncFtpConnection CreateConnection(TcpClient client)
-        {
-            return new TcpFtpConnection(client, _options.EnableTls ? _options.Certificate : null, implicitTls: false);
-        }
+protected IAsyncFtpConnection CreateConnection(TcpClient client)
+{
+    if (_options.EnableTls)
+    {
+        if (_options.Certificate == null)
+            throw new InvalidOperationException("TLS is enabled but no certificate has been provided.");
+
+        return new TcpFtpConnection(client, _options.Certificate, implicitTls: false);
+    }
+
+    return new TcpFtpConnection(client, null);
+}
     }
 }

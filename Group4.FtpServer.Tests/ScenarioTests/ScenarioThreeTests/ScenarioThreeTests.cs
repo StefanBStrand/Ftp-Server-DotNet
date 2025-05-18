@@ -7,7 +7,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioThreeTests
     [TestClass]
     public class ScenarioThreeTests
     {
-        private IFtpServer _ftpServer;
+        private IFtpServer _ftpServer = null!;
 
         [TestInitialize]
         public async Task Setup()
@@ -48,7 +48,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioThreeTests
             using var reader = new StreamReader(stream, Encoding.ASCII);
             using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
-            string welcome = await reader.ReadLineAsync();
+            string welcome = (await reader.ReadLineAsync())!;
             Assert.IsTrue(welcome.StartsWith("220"), "Server should have started with 220 Welcome.");
             await writer.WriteLineAsync("USER test");
             Assert.AreEqual("331 Password required", await reader.ReadLineAsync());
@@ -56,7 +56,7 @@ namespace Group4.FtpServer.Tests.ScenarioTests.ScenarioThreeTests
             Assert.AreEqual("230 User logged in.", await reader.ReadLineAsync());
 
             await writer.WriteLineAsync("PASV");
-            string pasvResp = await reader.ReadLineAsync();
+            string pasvResp = (await reader.ReadLineAsync())!;
             int dataPort = ExtractPortFromPasvResponse(pasvResp);
             await writer.WriteLineAsync("STOR mycloudfile.txt");
             Assert.AreEqual("150 Ready to receive data.", await reader.ReadLineAsync());
