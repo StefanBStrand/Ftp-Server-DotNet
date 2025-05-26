@@ -238,32 +238,41 @@ namespace Group4.FtpServer
                 await connection.SendResponseAsync("220 Welcome to Group-4 FTP server.");
                 while (_isRunning)
                 {
+                    string rawCommand = await connection.ReadCommandAsync();
+                    if (string.IsNullOrEmpty(rawCommand))
+                        break;
+
+                    rawCommand = rawCommand.Trim();
+
+                    // find the commando (the first part of the command)
+                    string[] parts = rawCommand.Split(' ');
+                    string commandName = parts[0].ToUpperInvariant();
+
+                    if (!session.IsAuthenticated &&
+                        commandName != "USER" && commandName != "PASS" &&
+                        commandName != "QUIT" && commandName != "AUTH")
+                    {
+                        await connection.SendResponseAsync("530 Please login with USER and PASS.");
+                        continue;
+                    }
+
                     try
                     {
-                        string command = await connection.ReadCommandAsync();
-                        if (string.IsNullOrEmpty(command))
-                            break;
-
-                        var commandName = command.Split(' ')[0].ToUpper();
-
-                        if (!session.IsAuthenticated &&
-                            commandName != "USER" && commandName != "PASS" &&
-                            commandName != "QUIT" && commandName != "AUTH")
-                        {
-                            await connection.SendResponseAsync("530 Please login with USER and PASS.");
-                            continue;
-                        }
-
-                        string response = await _commandProcessor.ProcessCommandAsync(command, connection, session);
+                        string response = await _commandProcessor.ProcessCommandAsync(rawCommand, connection, session);
 
                         if (!string.IsNullOrEmpty(response))
                         {
                             await connection.SendResponseAsync(response);
                         }
                     }
+                    catch (NotSupportedException)
+                    {
+                        await connection.SendResponseAsync("502 Command not implemented");
+                        continue;
+                    }
                     catch (InvalidOperationException e)
                     {
-                        _logger?.LogError("Error handling the client's command: {Message}", e.Message);
+                        _logger?.LogError("Error handling the command: {Message}", e.Message);
                         await connection.SendResponseAsync($"500 Internal server error. {e.Message}");
                         break;
                     }

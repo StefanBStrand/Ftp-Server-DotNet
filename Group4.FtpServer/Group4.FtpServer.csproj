@@ -9,7 +9,7 @@
 	<Title>Group 4 FTP Server Library</Title>
 	<Description>A flexible and extensible .NET FTP server library supporting multiple storage backends, including composite storage, TLS encryption, and customizable authentication. Perfect for building robust file transfer solutions.</Description>
 	<tags>ftp ftpserver filetransfer dotnet tls storage composite-storage authentication</tags>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Blazej J &amp; Stefan S</Authors>
   </PropertyGroup>
 
