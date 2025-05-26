@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 
 namespace Group4.FtpServer.Handlers
 {
@@ -108,7 +107,7 @@ protected IAsyncFtpConnection CreateConnection(TcpClient client)
         return new TcpFtpConnection(client, _options.Certificate, implicitTls: false);
     }
 
-    return new TcpFtpConnection(client, null);
+    return new TcpFtpConnection(client);
 }
     }
 }
